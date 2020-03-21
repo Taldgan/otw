@@ -5,11 +5,7 @@ import natas14solution
 def get_pass(dat):
     auth = HTTPBasicAuth('natas15','AwWj0w5cvxrZiONgZ9J5stNVkmxdk39J')
     r = requests.post('http://natas15.natas.labs.overthewire.org/', auth=auth, data=dat)
-    webcontent = r.text
-    #i = webcontent.find('natas16 is ')
-   # s = webcontent[i:i+32]
-    #print(webcontent)
-    return webcontent
+    return r.text 
 def check_exists(webcontent):
     if webcontent.find('This user exists.') != -1:
         return 1

