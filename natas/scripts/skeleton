@@ -1,0 +1,12 @@
+import re
+import requests
+from requests.auth import HTTPBasicAuth
+
+def get_pass():
+	auth = HTTPBasicAuth('natas','')
+	r = requests.get('http://natas.natas.labs.overthewire.org/', auth=auth)
+	pass_regex = '[a-zA-Z0-9]{32}'	
+	print(re.findall(pass_regex,r.text)[1])
+
+if __name__ == '__main__':
+	get_pass()
