@@ -1,0 +1,35 @@
+This level also asks for a 'secret'.
+
+Upon inspecting the source code, you see this little chunk of php:
+
+<?
+
+$encodedSecret = "3d3d516343746d4d6d6c315669563362";
+
+function encodeSecret($secret) {
+    return bin2hex(strrev(base64_encode($secret)));
+}
+
+if(array_key_exists("submit", $_POST)) {
+    if(encodeSecret($_POST['secret']) == $encodedSecret) {
+    print "Access granted. The password for natas9 is <censored>";
+    } else {
+    print "Wrong secret";
+    }
+}
+?>
+
+What stands out is that there is a string that is compared with the "$encodedSecret" variable.
+If they are the same, the next password is displayed.
+
+Since this level shows you exactly how the encoded string was created (bin2hex, then strrev, then base64_encode),
+
+all you need to do to find the unencoded secret to pass in, is write a php script that reverses and prints out the decoded string
+
+<?php 
+	$secret = base64_decode(strrev(hex2bin("3d3d516343746d4d6d6c315669563362")));
+	print $secret
+?>
+ For example, this ^
+
+Pass that in thru a script or by hand and the level is beaten

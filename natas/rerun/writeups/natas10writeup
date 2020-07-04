@@ -1,0 +1,11 @@
+This level is very similar to the last one, except now the input you provide is filtered!
+
+This means you can't use ;, add comments, or anything.
+
+Fortunately, the php command STILL uses grep.
+
+Because grep allows you to search for one character in multiple files, all you have to do is find a character
+
+that is inside of the natas11 password, (c) and pass that in along with /etc/natas_webpass/natas11
+
+as such, by searching for 'c /etc/natas_webpass/natas11', you get the next password!

@@ -1,0 +1,9 @@
+Upon loading the webpage it tells you that access is disallowed unless you visit from natas5.natas.labs.overthewire.org
+
+Essentially, it is asking you to change the "referer" header of the http request packet to be from the above URL
+
+Either use burpsuite, or write it in a quick lil script using python requests,
+
+and then the level is solved!
+
+

@@ -1,0 +1,7 @@
+This one is pretty straightforward.
+
+It presents you with two hyperlinks, for a "Home Page" and an "About Page"
+
+Upon clicking them, a get request is made with a "page" parameter, clearly assigning the path to the file to be viewed on the server end.
+
+As such you can make a get request assigning this value to /etc/natas_webpass/natas8/ to display the natas8 password. :p

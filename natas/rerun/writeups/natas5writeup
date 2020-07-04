@@ -1,0 +1,5 @@
+Upon loading the page, it says "You are not logged in" 
+
+When checking the packet thru burpsuite, it shows that there is a "logged in" cookie assigned to 0 by default.
+
+Upon changing it to 1, the level is completed.

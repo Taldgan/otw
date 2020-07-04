@@ -1,0 +1,31 @@
+This level prompts you with a textfield that allows you to input a "secret".
+
+If you input the wrong secret, you get "wrong secret" as the output
+
+	<?
+
+		include "includes/secret.inc";
+
+		if(array_key_exists("submit", $_POST)) {
+			if($secret == $_POST['secret']) {
+				print "Access granted. The password for natas7 is <censored>";
+			} else {
+				print "Wrong secret";
+			}
+		}
+	?>
+
+Upon inspecting the source code, this segment of php stands out.
+
+"include" in php indicates a path to a php file containing php you want to import into your script.
+
+The argument after is the path to the included php file, in this case "includes/secret.inc".
+
+In order to view this file, you go to "http://natas6.natas.labs.overthewire.org/includes/secret.inc/"
+
+There it gives you this segment of PHP, where the "secret" value is assigned.
+<?
+	$secret = "FOEIUWGHFEEUHOFUOIU";
+?>
+Upon inputting that into the submit field (using a POST request) by hand/script, the password is given.
+

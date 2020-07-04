@@ -1,0 +1,19 @@
+This one is similar to the last, the main hint being
+
+"No more information leaks, nothing even Google will find."
+
+Although the knowledge for this is kind of specific, the idea is "why wouldn't Google find an 'information leak'"
+
+The answer is the robots.txt file most webservers have, that indicates whether or not specific folders should be indexed
+by a search engine or not.
+
+Upon looking at 'http://natas3.natas.labs.overthewire.org/robots.txt/'
+
+you find
+
+   User-agent: *
+   Disallow: /s3cr3t/
+
+The above "Disallow" portion indicates any folders not to be indexed (such as /s3cr3t/)
+
+Upon visiting s3cr3t you find the password for natas4

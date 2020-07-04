@@ -1,0 +1,12 @@
+"There is nothing on this page."
+
+Upon viewing the page source code, there is a link to a png file under
+
+"http://natas2.natas.labs.overthewire.org/files/pixel.png"
+
+Because of this link, I know that there is an accessible "files" directory for the server.
+
+As such, upon examining the files directory a "users.txt" file is found containing the password
+
+for natas3
+

