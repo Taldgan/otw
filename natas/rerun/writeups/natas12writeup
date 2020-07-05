@@ -1,0 +1,17 @@
+This level prompts you to upload a JPEG file, after which it creates a random link to the image that you can click on
+and view. (http://natas12.natas.labs.overthewire.org/uploads/xxxxxxx.jpg)
+
+When you check the source code, you can see that the php doesn't check what type of file you actually uploaded,
+and you can change the name (and thereby url) of the uploaded file with a 'filename' component of the post request.
+
+As such, you can write a php file to 'cat' out the password for natas13
+
+i.e.:
+
+<?php
+    passthru('cat /etc/natas_webpass/natas12');
+?>
+
+Name the file, upload that as the image, and change the file extension in the post request to .php.
+
+Once uploaded, you can click on the file to execute the php and display natas13's password!

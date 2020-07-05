@@ -1,8 +1,7 @@
-//json encode, then xorencrypt
 <?php
 function xor_encrypt($in) {
-    $key = $in;
-    $text = json_encode(array('{"showpassword":"yes","bgcolor":"#ffffff"}'));
+    $key = substr(exec('php xordecrypt.php'), 0, 4);
+    $text = $in; 
     $outText = '';
 
     // Iterate through each character
@@ -12,8 +11,9 @@ function xor_encrypt($in) {
 
     return $outText;
 }
-    $key = substr(exec('php xordecrypt.php'), 0, 4);
-    $test = xor_encrypt('qw8J');
-    #$test = xor_encrypt($key);
-    print base64_encode($test);
+
+$payload = array( "showpassword"=>"yes","bgcolor"=>"#ffffff");
+$test = base64_encode(xor_encrypt(json_encode($payload)));
+print $test;
+
 ?>

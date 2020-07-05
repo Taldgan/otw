@@ -1,0 +1,41 @@
+The primary purpose of this level seems to be to work with php to:
+
+- identify levels of encryption and reverse them
+- specifically understand how xor encryption works and reverse it 
+
+
+The main chunk of php that stands out in the source code is the 
+portion that loads in an encrypted cookie. The page says that the cookies
+are protected by "xor encryption"
+
+__________________________________________________________________
+$defaultdata = array( "showpassword"=>"no", "bgcolor"=>"#ffffff");
+
+function xor_encrypt($in) {
+    $key = '<censored>';
+    $text = $in;
+    $outText = '';
+
+    // Iterate through each character
+    for($i=0;$i<strlen($text);$i++) {
+    $outText .= $text[$i] ^ $key[$i % strlen($key)];
+    }
+
+    return $outText;
+}
+__________________________________________________________________
+
+By taking the provided xor_encrypt method written in the source code,
+
+you can take the outputted cookie (and default array) to reverse the encryption and find the key used.
+
+The key ends up being 'qw8J' (which is repeated multiple times).
+
+You then take the method, passing in the array with "showpassword"=>"yes" and the proper key you just found, and pass the encrypted
+cookie into the website. 
+
+Following the order of the website specifically, you json encode the array, xor encrypt it, then base64 encode that final string. 
+
+	array( "showpassword"=>"yes", "bgcolor"=>"#ffffff");
+
+This yields the password for natas12!: EDXp0pS26wLKHZy1rDBPUZk0RKfLGIR3
