@@ -1,0 +1,16 @@
+This level prompts you with a username and password field, and gives you the next level if you login.
+
+Upon inspecting the sourcecoude, you see that the username and password fields are inputted into
+a MySQL query, and passed to a database to validate a matching username/password to login.
+
+This MySQL query input is not sanitized at all, and as such passing in '"OR 1=1#' bypasses the login check and completes the level.
+
+							      |
+The '"' is to close off the "username" portion of the request v
+        "SELECT * from users where username=\"".$_REQUEST["username"]."\" and password=\"".$_REQUEST["password"]."\"";
+
+'OR 1=1' is a condition that always yields true, so when the php of the webpage checks for a "valid" response, that will let the check go through.
+
+the last part '#' blocks out the entire right portion (and password=\"") and on.
+
+Bada bing bada boom

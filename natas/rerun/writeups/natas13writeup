@@ -1,0 +1,39 @@
+Very similar to the last one -- but this one blocks file uploads that aren't jpgs.
+
+Upon inspecting the sourcecode, you see:
+
+	if(array_key_exists("filename", $_POST)) {
+	    $target_path = makeRandomPathFromFilename("upload", $_POST["filename"]);
+	    
+	    $err=$_FILES['uploadedfile']['error'];
+	    if($err){
+		if($err === 2){
+		    echo "The uploaded file exceeds MAX_FILE_SIZE";
+		} else{
+		    echo "Something went wrong :/";
+		}
+	    } else if(filesize($_FILES['uploadedfile']['tmp_name']) > 1000) {
+		echo "File is too big";
+	    } else if (! exif_imagetype($_FILES['uploadedfile']['tmp_name'])) {
+		echo "File is not an image";
+	    } else {
+		if(move_uploaded_file($_FILES['uploadedfile']['tmp_name'], $target_path)) {
+		    echo "The file <a href=\"$target_path\">$target_path</a> has been uploaded";
+		} else{
+		    echo "There was an error uploading the file, please try again!";
+		}
+	    }
+	} else {
+	?>
+
+Specifically, this portion -> } else if (! exif_imagetype($_FILES['uploadedfile']['tmp_name'])) {
+
+It checks if an image is not "exif_imagetype".
+
+When you look up this php method, it explains that it checks the first few bytes for the signature of an image.
+
+As such, if you hexdump a jpg and make the first few hex values match that in the php script, it will be recognized
+as an image and uploaded successfully.
+
+Otherwise, it is entirely the same as 12, just requires changing some hex values.
+
