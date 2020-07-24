@@ -5,7 +5,6 @@ from requests.auth import HTTPBasicAuth
 
 def get_pass():
     passw = subprocess.run(['getpass', '14'], stdout=subprocess.PIPE).stdout.decode('utf-8')
-    auth = HTTPBasicAuth('natas14', passw.strip())
     #Get request to website, creates object that contains a .text property
     #text property holds the html of the webpage
     payload = {'username':'"OR 1=1#','password':'','submit':'Login'}

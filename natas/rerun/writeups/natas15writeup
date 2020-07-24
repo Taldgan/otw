@@ -1,0 +1,31 @@
+This might be one of the coolest early (ish) levels in natas.
+
+It does require a bit of MySQL knowledge to complete, specifically understanding how to search for specific items in a field, but it is very doable.
+
+
+The main vulnerability is that (once again) user input isn't sanitized, and allows for arbitrary code execution on the server.
+
+The website prompts you to check if a user exists in the database (such as natas16!) and upon inputting the username, it will either say it does or does not exist.
+
+
+As such, you can mess with the SQL query to search for a matching password for the user (natas16).
+
+
+I do it using this POST request/MySQL query:
+   
+   'natas16" and password LIKE BINARY "%"#'
+
+Breaking it down, 'natas16"' tells MySQL to search for the user 'natas16', then the quote allows for further additions to the command
+(for arbitrary commands).
+
+'and' extends the SQL command, 'password' is the secondary field, and 'LIKE BINARY' looks for data in the field matching a following pattern. (with binary making sure case matters)
+
+'"pass_search_here%"' is where you input characters you think exist in the password, and the % indicates that other random characters can follow it to SQL.
+
+as such, you can slowly build the password up by adding the correct sequence of characters to the beginning of the password, and the webpage will literally tell you if your input/password guess is correct due to the "This user exists." response.
+
+
+All that is required then is a script to automatically test each possible character as the password is built up, which I wrote in python.
+
+
+Very cool level.
