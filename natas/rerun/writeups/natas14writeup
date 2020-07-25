@@ -1,6 +1,6 @@
 This level prompts you with a username and password field, and gives you the next level if you login.
 
-Upon inspecting the sourcecoude, you see that the username and password fields are inputted into
+Upon inspecting the sourcecode, you see that the username and password fields are inputted into
 a MySQL query, and passed to a database to validate a matching username/password to login.
 
 This MySQL query input is not sanitized at all, and as such passing in '"OR 1=1#' bypasses the login check and completes the level.

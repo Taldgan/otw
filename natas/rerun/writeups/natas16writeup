@@ -1,0 +1,50 @@
+This one is pretty damn tricky if you ask me.
+
+A lot of it is very similar to level 15 - in essence you are building up a password by passing in a query that nets a certain response if the character you added to the password is "correct".
+
+The query you pass to the "dictionary" field is confusing itself.
+
+Unlike level (9?) where there is no input sanitization (and thereby allowing you to quite literally just pass a cat command to view the password), this level does sanitize inputs.
+
+You can't php-comment out the dictionary file in the grep command the webpage uses (grep -i "$key" dictionary.txt), nor can you use quotes, redirects, etc.
+
+The only thing you can use is $, and parentheses -- but that is enough!
+
+To break it down, the input and command taken in by the webpage is this:
+
+
+______________________________________
+if($key != "") {
+    if(preg_match('/[;|&`\'"]/',$key)) {
+        print "Input contains an illegal character!";
+    } else {
+        passthru("grep -i \"$key\" dictionary.txt"); <--------------------------------------  This line!
+    }
+}
+?>
+______________________________________
+
+
+How could you manipulate the "$key" variable to allow for building up the natas17 password?
+
+The solution is quite tricky, but it requires you to manipulate the way grep works.
+
+If a portion of the text file matches the parameter you pass in grep, it will display the matching line.
+
+If nothing matches, then nothing is displayed.
+
+
+Hence if you pass the word "bushelled" to the website, bushelled will be displayed (as it is in the dictionary file).
+
+If you pass "Abushelled", nothing will be displayed at all, since the word "Abushelled" is not an item in the dictionary file.
+
+ - How does this help? 
+   Essentially, since you can pass commands using $(), you can attach a word to the end of a given command, '$()bushelled'. If there is no output, the webpage will give you the response "bushelled".
+
+   If there is an output (such as the password), you send the webpage 'XYZbushelled' (where XYZ is the password), and it WON'T output anything.
+
+   Manipulating this property, you can send the query where l represents the password being built '$(grep ^l /etc/natas_webpass/natas17)bushelled' to the webpage.
+
+   If the characters you pass in that query match the password (in order) of natas17, then the webpage will have no response. You can then build up the password like you did for the last level thru that method!
+
+   Very confusing level, but also cool haha.
