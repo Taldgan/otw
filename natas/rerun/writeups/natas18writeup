@@ -1,0 +1,6 @@
+The gist of this level is understanding and abusing the concept of PHP session IDs.
+
+Checking the source code of the level, you can see that a number (640) of available session ID's is allocated for the logins.
+
+The solution, therefore, is to quite literally iterate through all 640 PHPSESSID's until you access the webpage
+with one that is assigned to a valid admin login. That's it!

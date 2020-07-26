@@ -1,0 +1,27 @@
+Similar to level 15, where you build up a password by abusing SQL injection.
+
+Not so similarly, this time the website doesn't give you ANY notification that the username exists,
+
+even if it does!
+
+In order to build the password then, you can abuse another aspect of MySQL - time!
+
+Instead of passing the basic MySQL query used for level 15
+_________________________________________________________
+'natas18" and password LIKE BINARY "usrpassguess%"#'
+_________________________________________________________
+
+you do this!
+______________________________________________________________________________
+'natas18" and IF('password like binary usrpassguess%', SLEEP('2'), SLEEP(0) #'
+______________________________________________________________________________
+
+
+Breaking it down, the command is the exact same with one exception!
+
+IF a matching password is found for the username (natas18), the program will sleep/pause for
+
+two seconds. As such, if the response takes less than two seconds the guess was wrong.
+
+Using this logic, you can write a script to build the user password based off of how long the 
+webpage takes to respond to you. Pretty sick.

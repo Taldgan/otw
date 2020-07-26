@@ -1,0 +1,15 @@
+This one is a lot like the last one! It doesn't let you see the source code this time, but it tells you its the same except the PHPSESSID's are no longer sequential. The question then becomes, if they are not just 'sequential',
+what are they and how can you manipulate them??
+
+When presented with the login field, and upon submitting a username/pass, you can check the HTTP request in burp suite.
+
+There, you can identify the PHPSESSID cookie to be something like '382d'.
+
+At this point, the way to move forward would be to perhaps identify that the cookie looks like hex - and as such
+can be identified to be a hex-encoded string. Upon decoding it, you will find that the cookie is going to be
+
+'1-username', where the 1 indicates the "number" of the phpsessid (like from the last level), and then the username is supplied after the -. 
+
+Since you want to login as an admin, iterate through the 640 possible ID's,
+
+encoding '#-admin' with hex. That will get you logged in!
