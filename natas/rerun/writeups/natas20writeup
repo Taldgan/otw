@@ -85,7 +85,7 @@ it will be split like this:
 (name \nadmin 1\n")
 "[name][ ]"
 "[admin][1]"
-"[][]"
+"[]" (empty so it doesn't read in the second part of the line)
 
 The last portion of my read takes each of those split lines, and assigns $_SESSION values based off those lines.
 
