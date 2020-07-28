@@ -1,0 +1,94 @@
+The premise of this level is to teach about the LF portion of CRLF attacks. The relevant portions of the PHP are two functions, myread() and mywrite().
+
+
+
+
+____________________
+function mywrite($sid, $data) { 
+    // $data contains the serialized version of $_SESSION
+    // but our encoding is better
+    debug("MYWRITE $sid $data"); 
+    // make sure the sid is alnum only!!
+    if(strspn($sid, "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-") != strlen($sid)) {
+    debug("Invalid SID"); 
+        return;
+    }
+    $filename = session_save_path() . "/" . "mysess_" . $sid;
+    $data = "";
+    debug("Saving in ". $filename);
+    ksort($_SESSION);
+    foreach($_SESSION as $key => $value) {
+        debug("$key => $value");
+        $data .= "$key $value\n";
+    }
+    file_put_contents($filename, $data);
+    chmod($filename, 0600);
+}
+___________________
+function myread($sid) { 
+    debug("MYREAD $sid"); 
+    if(strspn($sid, "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-") != strlen($sid)) {
+    debug("Invalid SID"); 
+        return "";
+    }
+    $filename = session_save_path() . "/" . "mysess_" . $sid;
+    if(!file_exists($filename)) {
+        debug("Session file doesn't exist");
+        return "";
+    }
+    debug("Reading from ". $filename);
+    $data = file_get_contents($filename);
+    $_SESSION = array();
+    foreach(explode("\n", $data) as $line) {
+        debug("Read [$line]");
+    $parts = explode(" ", $line, 2);
+    if($parts[0] != "") $_SESSION[$parts[0]] = $parts[1];
+    }
+    return session_encode();
+}
+___________________
+
+Specifically, the for loops.
+
+The key to solving this level, is understanding how those foreach loops operate, and how you can use them to set $_SESSION variables to whatever you want by exploiting them.
+
+___________________
+if($_SESSION and array_key_exists("admin", $_SESSION) and $_SESSION["admin"] == 1)
+_______
+
+Specifically, because of the above if statement, we want the 'admin' session var to be set to 1.
+
+
+The way to go about it is by passing in  '\nadmin 1' to the http-post 'name' field, which is written into a temporary PHP session file using mywrite.
+
+
+The foreach loop of mywrite writes the session variables (name:\nadmin 1) as a key/value pair in the data file like this:
+
+"$key $value\n"
+
+In the solution case, "name \nadmin 1\n".
+
+Once this is written under the session file, upon reloading the webpage with the same session
+
+the file will be read using myread().
+
+The foreach loop of myread uses "explode" with \n as the delimeter.
+
+Each line is then split again using explode with space as the delimeter.
+
+
+With the data that was inputted into the mysess_file
+
+it will be split like this:
+
+
+(name \nadmin 1\n")
+"[name][ ]"
+"[admin][1]"
+"[][]"
+
+The last portion of my read takes each of those split lines, and assigns $_SESSION values based off those lines.
+
+In this case, $_SESSION['name'] = ' ', and $_SESSION['admin'] now equals 1!
+
+That's it!
