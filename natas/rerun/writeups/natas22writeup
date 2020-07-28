@@ -1,0 +1,41 @@
+Fairly simple level! Woo!
+
+_____________________________
+<?
+session_start();
+
+if(array_key_exists("revelio", $_GET)) {
+    // only admins can reveal the password
+    if(!($_SESSION and array_key_exists("admin", $_SESSION) and $_SESSION["admin"] == 1)) {
+    header("Location: /");
+    }
+}
+?>
+_____________________________
+
+<?
+session_start();
+
+if(array_key_exists("revelio", $_GET)) {
+    // only admins can reveal the password
+    if(!($_SESSION and array_key_exists("admin", $_SESSION) and $_SESSION["admin"] == 1)) {
+    header("Location: /");
+    }
+}
+?>
+_____________________________
+
+
+These are the only two pieces of php in the whole level!
+
+To summarize them, if "revelio" is in the get request (no matter what it is set to)
+
+the credentials for natas23 will be provided!
+
+The only issue, is if you can't set $_SESSION['admin'] to equal 1, it redirects you back to the webpage using header().
+
+The piece of PHP that redirects you executes BEFORE the piece that prints the credentials, which is not good.
+
+The way to get around it? Don't allow redirects, it's in the description for header() itself.
+
+Send a get request with '?revelio=' and don't allow redirects to print the credentials!
