@@ -1,0 +1,32 @@
+For some reason php assigns some strange equivalences where it should not.
+
+That is the source of the solution for this level, which is focused on this tiny block of php:
+
+
+<?php
+    if(array_key_exists("passwd",$_REQUEST)){
+        if(!strcmp($_REQUEST["passwd"],"<censored>")){
+            echo "<br>The credentials for the next level are:<br>";
+            echo "<pre>Username: natas25 Password: <censored></pre>";
+        }
+        else{
+            echo "<br>Wrong!<br>";
+        }
+    }
+    // morla / 10111
+?>
+
+
+
+Specifically, the 2nd and 3rd lines, which check for "passwd" in the request, and check to see if it is equal to an unknown string.
+
+
+From here on out, it was kind of playing around with the inputs to see if I could break it, and eventually I did.
+
+If you check the php type comparisons table (php.net/manual/en/type.comparisons.php), you will find that in loose comparisons, arrays and strings always evaluate to true.
+
+Furthermore, reading up on strcmp, $var[] = "anythinginhere" also evaluates to true... for some reason.
+
+With this knowledge, instead of passing ?passwd= to natas24, you can pass ?passwd[]=, which php recognizes as valid in line 2 (as a request containing 'passwd'), and also manages to break the strcmp to return true! 
+
+That's it.
