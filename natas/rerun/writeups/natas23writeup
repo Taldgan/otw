@@ -1,0 +1,40 @@
+This level is pretty simple, and its purpose (as far as I can tell) is to highlight weaknesses in php.
+					 |
+The main (and only) chunk of php is this v
+__________________________________________________________
+<?php
+    if(array_key_exists("passwd",$_REQUEST)){
+        if(strstr($_REQUEST["passwd"],"iloveyou") && ($_REQUEST["passwd"] > 10 )){
+            echo "<br>The credentials for the next level are:<br>";
+            echo "<pre>Username: natas24 Password: <censored></pre>";
+        }
+        else{
+            echo "<br>Wrong!<br>";
+        }
+    }
+    // morla / 10111
+?> 
+________________________________________________________
+
+At first glance, the password has to equal "iloveyou" but also be larger than ten??? How does that work.
+
+Well, strstr() actually returns the first instance of a the string supplied in the parameter and all of the string that follows after!
+
+For example:
+
+strstr("iloveyoutaldgan", "you") would return "youtaldgan"
+
+Essentially, this means that you can put (in the level's case) whatever you want in front of "iloveyou", and the password will still equal "iloveyou".
+
+
+The second piece of knowledge needed to beat the level is understanding how the comparison (>) operator works with strings.
+
+Since it is comparing a string (passwd) with an integer (10), PHP will convert the string into an integer if it can.
+
+In php, according to the manual, "bob3" converted to an int would be 0, but "3bob" would be equivalent to 3 once converted!
+
+So in order to solve this level, you only need to supply an integer larger than 10 in front of the string "iloveyou" to beat it!
+
+In my case, sending the request http://natas23.natas.labs.overthewire.org/?passwd=11iloveyou beats the level.
+
+Php is pretty weird.
