@@ -1,0 +1,60 @@
+This level is pretty damn cool.
+
+
+Accessing the website sends a get request, where a "lang" field is assigned to either /en or /de.
+
+Depending on which one is picked, a paragraph is displayed in either english or german based off of text files located in the folder containing the webpage.
+
+specifically: (/var/www/natas/natas25/language/en (or de))
+
+
+The obvious solution then would be to use the lang field to traverse to /etc/natas_webpass/natas26 to output the password, right?
+
+Unfortunately, no. There are two different checks to prevent that. The first (and unavoidable) check blocks any request that includes natas_webpass in it, defaulting to /en instead.
+
+The second blocks path traversal, by replacing every instance of "../" with "".
+
+The second one is easy to get around, by instead using "..././" or (expanded) ". ../ ./"  This will remove the middle ../, leaving behind ../!
+
+Now that you can traverse between the directories at will, aside from those in natas_webpass on, how can you view the password?
+
+Well, there is another pretty big segment of the php: log files!
+
+
+Looking through the page, you can see this:
+
+___________________________________________
+function logRequest($message){
+        $log="[". date("d.m.Y H::i:s",time()) ."]";
+        $log=$log . " " . $_SERVER['HTTP_USER_AGENT'];
+        $log=$log . " \"" . $message ."\"\n"; 
+        $fd=fopen("/var/www/natas/natas25/logs/natas25_" . session_id() .".log","a");
+        fwrite($fd,$log);
+        fclose($fd);
+    }
+__________________________________________
+
+
+A variable named $log adds the date, the user agent (!!!), as well as a message and dumps it into a file located at /var/www/natas/natas25/logs/natas25_SESSIONID.log.
+
+That is the last component right there. Although you can't really change the message or the date according to the server, you CAN change the User-Agent field.
+
+Although the file extension of the logfile isn't .php, when the language is set, after checking if the file exists it uses php.include($file) to read in the contents.
+
+PHP executes either when a .php file is executed, OR when a file is opened using include().
+
+As such, by injecting your own PHP into the user-agent field (namely cat'ing the /etc/natas_webpass/natas26 file using passthru and printing it)
+
+and manipulating the lang field to traverse to the logfile, you can view the password for natas26! Pretty cool.
+
+
+key things to change:
+
+- phpid = whateveryouwant
+
+- User-Agent: <?php print passthru('/etc/natas_webpass/natas26'); ?>
+
+- ?lang=..././logs/natas25_phpid.log
+
+
+
