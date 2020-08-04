@@ -1,0 +1,20 @@
+Weird level.
+
+
+This level prompts you with a username/password field. If a new user is put in, a new user is created.
+
+Once logged in, it reveals the username/password for the account that gets logged in.
+
+This level is pretty damn difficult in that all of the input is properly sanitized regarding characters,
+and the php itself isn't inherently flawed. 
+
+Honestly out of all the levels, this one seems the most secure - minus one mistake.
+
+When the database is created using VARCHAR(64), the column character limit is thereby 64.
+
+The way VARCHAR works in MySQL, if trailing spaces exceed the character limit, the string is truncated cutting off everything until the end.
+
+
+Inorder to complete this level, you must bypass the login by creating a fake natas28 user whose username is equivalent to the actual natas28, but lets you login anyway.
+
+The way to do that is to pass in 'natas28_______________________________________________________a' with any character at the end of enough spaces to make the length of the username over 64. That'll generate a fake natas28 user. Then, you can remove the extraneous character at the end to login as natas28, yielding the creds. Strange.
