@@ -1,5 +1,4 @@
 from urllib.parse import unquote
-import string
 import base64
 import sys
 import subprocess
