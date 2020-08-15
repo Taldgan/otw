@@ -10,15 +10,38 @@ auth = HTTPBasicAuth('natas28', passw.strip())
 
 def find_query(offset, character):
     payload = bytearray()
-    blah = 'a'*10+'b'*16+'c'*offset
-    payload.extend(blah.encode())
-    comp = requests.post('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, data={b'query':bytes(payload)}, allow_redirects=False)
-    payload.extend(character)
+    payload_comp = bytearray()
+
+    buff_comp = 'a'*10+'b'*16+'c'*3+'c'*offset
+    buff = 'a'*10+'b'*32 #buffer, add line w/ 'padding' based off of length of 'character'
+
+
+    payload_comp.extend(buff_comp.encode())
+    payload.extend(buff.encode())
+    padding = get_padding(character)
+    payload.extend(padding)
+
+    
+    comp = requests.post('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, data={b'query':bytes(payload_comp)}, allow_redirects=False)
+
     r = requests.post('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, data={b'query':bytes(payload)}, allow_redirects=False)
+
     query = r.headers['Location']
     query_comp = comp.headers['Location']
+
     responses = [query_comp[18:], query[18:]]
     return responses
+
+
+def get_padding(character):
+    length = len(character)
+    padding_len = 16-length
+    padding = bytearray()
+    for c in character:
+        padding.append(c)
+    for i in range(0, padding_len):
+        padding.append(padding_len)
+    return padding
 
 def url_base64_to_hex(response):
     urldecoded = unquote(response[1])
@@ -34,9 +57,9 @@ def split_newline(response):
     length = len(response[1])
     s = "" 
     for i in range(0,int(length/32)):
-        if(i == 4):
-            s += response[1][32*i:32*i+32] + "\n"
-            s += response[0][32*i:32*i+32] + "\n"
+        if(i == 6):
+            s += response[1][32*i:32*i+32] + "\n" #find this line
+            s += response[0][32*i:32*i+32] + "\n" #altered line
     return s
 
 def compare_lines(lines):
@@ -54,9 +77,9 @@ if __name__ == '__main__':
             temp = bytearray()
             temp.extend(plaintext)
             temp.append(c)
-            print(str(count) + ": Trying: " + str(bytes(temp)) + " | Offset = " + str(16-i))
+            print(str(count) + ": Trying: " + str(bytes(temp)) + " | Offset = " + str(i))
             count += 1
-            test = split_newline(url_base64_to_hex(find_query(16-i, temp)))
+            test = split_newline(url_base64_to_hex(find_query(i, temp)))
             if compare_lines(test):
                 plaintext.append(c)
                 print("Character: " + str(chr(c)) + " | " + test + "\nPlaintext: " + str(plaintext))
