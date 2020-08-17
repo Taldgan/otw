@@ -13,7 +13,7 @@ def find_query(offset, character):
     payload_comp = bytearray()
 
     buff_comp = 'a'*10+'b'*16+'c'*3+'c'*offset
-    buff = 'a'*10+'b'*32 #buffer, add line w/ 'padding' based off of length of 'character'
+    buff = 'a'*10+'b'*48 #buffer, add line w/ 'padding' based off of length of 'character'
 
 
     payload_comp.extend(buff_comp.encode())
@@ -57,14 +57,18 @@ def split_newline(response):
     length = len(response[1])
     s = "" 
     for i in range(0,int(length/32)):
-        if(i == 6):
-            s += response[1][32*i:32*i+32] + "\n" #find this line
-            s += response[0][32*i:32*i+32] + "\n" #altered line
+        if i == 6:
+            s += response[1][32*i:32*i+32] + "\n" #line to solve
+            
+            s += response[0][32*i:32*i+32] + "\n" #comp line
     return s
 
 def compare_lines(lines):
     comp_line = lines.split('\n')[0]
     test_line = lines.split('\n')[1]
+    #print("Base: " + comp_line)
+    #print("Test: " + test_line)
+
     if comp_line == test_line:
         return True
     return False
@@ -75,12 +79,15 @@ if __name__ == '__main__':
         count = 0
         for c in range(256):
             temp = bytearray()
-            temp.extend(plaintext)
             temp.append(c)
+            temp.extend(plaintext)
             print(str(count) + ": Trying: " + str(bytes(temp)) + " | Offset = " + str(i))
             count += 1
             test = split_newline(url_base64_to_hex(find_query(i, temp)))
+            print("Curr plaintext: " + str(plaintext))
             if compare_lines(test):
-                plaintext.append(c)
-                print("Character: " + str(chr(c)) + " | " + test + "\nPlaintext: " + str(plaintext))
+                found = bytearray()
+                found.append(c)
+                plaintext = found + plaintext 
+                print("Found: " + str(chr(c)) + " | " + test + "\nPlaintext: " + str(plaintext))
                 break

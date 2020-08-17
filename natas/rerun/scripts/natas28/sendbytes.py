@@ -10,7 +10,7 @@ auth = HTTPBasicAuth('natas28', passw.strip())
 
 def find_query():
     payload = bytearray()
-    ppart = 'a'*10 + 'b'*15
+    ppart = 'a'*10
     #print(ppart)
     payload.extend(ppart.encode())
     charr = bytes(bytearray.fromhex(sys.argv[1]))
