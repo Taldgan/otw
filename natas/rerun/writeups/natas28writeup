@@ -1,0 +1,44 @@
+Holy shit. What a level...
+
+This one is entirely different from all the others -- specifically because of the star of the level: encryption!
+
+Upon opening natas28 you're presented with a page: 'Whack Computer Joke Database".
+
+In the center is a search bar, upon which searching returns 3 jokes.
+
+The first thing I noticed after searching, was that the extension 'search.php/?query=' was added.
+
+The second thing I noticed was the string after...
+
+With nothing but 'a' in the search bar inputted, I get the result 'G%2BglEae6W%2F1XjA7vRm21nNyEco%2Fc%2BJ2TdR0Qp8dcjPKriAqPE2%2B%2BuYlniRMkobB1vfoQVOxoUVz5bypVRFkZR5BPSyq%2FLC12hqpypTFRyXA%3D'
+
+for the GET field 'query'.
+
+What the fuck...?
+
+That began the multi week process of figuring out how to exploit this level.
+
+Playing with the 'query' field by hand, I sent 'query=a'. In return I got an error from search.php: 'Incorrect amount of PKCS#7 padding for blocksize'
+Albeit very confusing at the time, this piece of information is vital.
+
+Going forward, I sent in 'a' again and worked with the response it produced.
+
+Taking in the massive 'query', I tried to use a tool pointed out to me called 'CyberChef'.
+
+CyberChef lets you create 'recipes' to encrypt/decrypt/encode/decode an input however you would like.
+
+After url decoding the query, and using base64 (which returns no errors), what is left is an unreadable mess.
+
+I was presented with the guiding question 'if you wanted to take raw bytes and present them into a readable form, what would you use?'
+
+I then decided to convert that data into readable hex bytes.
+
+hex bytes output of search query 'a'
+1b e8 25 11 a7 ba 5b fd 57 8c 0e ef 46 6d b5 9c 
+dc 84 72 8f dc f8 9d 93 75 1d 10 a7 c7 5c 8c f2 
+ab 88 0a 8f 13 6f be b9 89 67 89 13 24 a1 b0 75 
+bd fa 10 54 ec 68 51 5c f9 6f 2a 55 44 59 19 47 
+90 4f 4b 2a bf 2c 2d 76 86 aa 72 a5 31 51 c9 70
+
+Now, going back to the 'PKCS#7' 
+
