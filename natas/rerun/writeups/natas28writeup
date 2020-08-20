@@ -40,5 +40,148 @@ ab 88 0a 8f 13 6f be b9 89 67 89 13 24 a1 b0 75
 bd fa 10 54 ec 68 51 5c f9 6f 2a 55 44 59 19 47 
 90 4f 4b 2a bf 2c 2d 76 86 aa 72 a5 31 51 c9 70
 
-Now, going back to the 'PKCS#7' 
+
+Before continuing with the hex bytes, lets go back to the 'PKCS#7' error, what does that tell us?
+
+PKCS#7 upon looking it up, is one of the 'Public Key Cryptography Standards". This tells us that the massive 'query' string is in fact some sort of encrypted piece of information.
+
+To continue getting more information from those hex bytes, I need to figure out what type of encryption is being used.
+
+The types of encryption are Symmetric (one shared key), and Asymmetric (two keys, public/private).
+
+Underneath symmetric encryption, you have 'block ciphers' which always encrypts the plaintext into a cipher with a length that is *always* a multiple of the blocksize.
+
+After submitting multiple queries, the response in hex as always split into blocks of 16 bytes. Perhaps that is unclear based off of the one example above, but that is what I was able to gather.
+
+16 bytes * 8 = 128 bits, so we have a 128 bit block cipher of some kind, but which one specifically?
+
+Due to the key size (128 bit), the cipher would logically be AES, which typically uses 128 bit keys.
+
+Next, the question becomes what is the mode of operation? (and what is a mode of operation)
+
+So the cipher itself, is 128bits. meaning if you had the message 'abcdefghijklmnop', which is 16 bytes (128 bits), each bit of the key would encrypt each letter/byte 1-to-1.
+
+What happens when you have a message that is longer than the cipher? The answer to that question is determined by the mode of operation.
+
+To be more specific, a mode of operation determines what happens to an encrypted message when there is more than 1 block of information to encrypt.
+
+Upon looking up a list of modes of operation for block ciphers, you get a few:
+
+- ECB
+- CBC
+- PCBC
+- CFB
+- OFB
+- CTR
+- GCM
+
+Lo and behold, the one mode of operation you should almost *NEVER* use is ECB or 'electronic codebook'
+
+The reason is because the same block of plaintext will always encrypt to the same ciphertext, and does not change based off of the other blocks of data. 
+As such, data patterns become extremely visible with ECB.
+Most infamously, look up the 'ECB' penguin. It is crazy.
+
+Anyway, knowing this is the most insecure mode of operation, how can you figure out if this is the mode of operation for this level?
+
+Essentially, the bytes
+
+1b e8 25 11 a7 ba 5b fd 57 8c 0e ef 46 6d b5 9c <-- here
+dc 84 72 8f dc f8 9d 93 75 1d 10 a7 c7 5c 8c f2 <-- here
+ab 88 0a 8f 13 6f be b9 89 67 89 13 24 a1 b0 75 
+bd fa 10 54 ec 68 51 5c f9 6f 2a 55 44 59 19 47 
+90 4f 4b 2a bf 2c 2d 76 86 aa 72 a5 31 51 c9 70 <-- and here
+
+after sending different inputs of the same length don't change at all.
+
+If it were a different mode of operation, the input in the middle of the plaintext to be encrypted would alter the entire encrypted response would change.
+
+Instead, different inputs of length 1 only visibly alter the third row of bytes.
+
+So great, the encryption type is AES ECB! Although AES is as of today a secure cipher, ECB is not at all secure.
+
+Knowing that, how could we go about recovering the plaintext?
+
+Well, the first step is identifying where your input is in the bytes sent in the response. Specifically, how many bytes are before and after your input?
+
+Upon testing multiple searches, there are two observations to make that help with this:
+
+the first two blocks *never* change based off of input or length of input, meaning that your input is at least 32 bytes into the response.
+
+next, the last block only changes after length of input, which is due to the padding (part of the PKCS#7 standard).
+
+For figuring out the number of bytes before:
+
+	The approach I took was to send a query with 2 parts:
+		- 32 bytes, composed of two identical 16-byte messages
+		- an adjustable buffer of bytes that goes before the 2 indentical blocks
+
+	What this does is allow me to figure out the number of bytes before. Since ECB encrypts the same block the same way, 2 blocks of the same input should be visible
+	Because of this behavior, you can send bytes that slowly increase the number of bytes before the identical block. Once the correct buffer size is sent,
+	there will be two identical blocks in the response that you can see.
+	
+	I wrote a utility I called 'querytohex' in python that lets me send a query with a string input, dumping the response in hex split blocks
+	The specific query I then used was 'BUFFERBYTESbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+	After sending 10 'a's in the buffer, the identical blocks revealed themselves, visible below (lines 3 & 4)
+	Adding the 32 bytes of the unchanging first 2 lines, and counting back 16 - the 10 bytes from the buffer in line 2,
+	you can see that my input is 38 (32+6) bytes into the response.
+
+	 __________________________________________________________________
+	|$python querytohex.py "aaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"|
+	|a: 10 b: 32 c: 0 other: 0					   |
+	|0: 1be82511a7ba5bfd578c0eef466db59c				   |
+	|1: dc84728fdcf89d93751d10a7c75c8cf2				   |
+	|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~			   |
+	|2: c0872dee8bc9 | 0b1156913b08a223a39e				   |
+	|3: 88a7bd72cda247dae1c3219f054b2e60				   |
+	|4: 88a7bd72cda247dae1c3219f054b2e60				   |
+	|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~			   |
+	|5: 738a5ffb4a4500246775175ae596bbd6				   |
+	|6: f34df339c69edce11f6650bbced62702				   |
+	|__________________________________________________________________|
+
+
+For figuring out the number of bytes after:
+	
+	Going back to the PKCS#7 error, we know that this encryption is using PKCS#7 style padding.
+
+	Specifically, that is why the last block (which contains the padding) changes only based off of the length of the input.
+
+	If you read up on it, PKCS#7 padding works this way for 16 byte blocks:
+		block_length-(plaintext_length % block_length) assigns the number of bytes of padding
+
+	In this case, 16-(# of bytes in the last block) = padding_length
+	
+	The last block is then the bytes left over + padding_length in hex * the length of the padding.
+	
+	For example if the last block just contained 'a', the padding would be
+
+	16-1 (a is one byte) = 15 bytes of padding.
+
+	The last block would then be 'a' + fifteen bytes of '0F' or "fifteen" in hex.
+
+	Knowing that we can identify the number of bytes after by counting the number of bytes with no input:
+	 _______________________________________
+	|$python getbytes/querytohex.py ""	|
+	|a: 0 b: 0 c: 0 other: 0		|
+	|0: 1be82511a7ba5bfd578c0eef466db59c	|
+	|1: dc84728fdcf89d93751d10a7c75c8cf2	|
+	|2: e87ff60c99ad | 72ccbd947e3417a90128	|
+	|3: a77e8ed1aabe0b5d05c4ffe6ac1423ab	|
+	|4: 478eb1a1fe261a2c6c15061109b3feda	|
+	|_______________________________________|
+
+	Now add the maximum number of bytes so that the block size doesn't increase, which ends up being 3.
+	(Sent 3 'a's)
+	 _______________________________________
+	|$python getbytes/querytohex.py "aaa"	|
+	|a: 3 b: 0 c: 0 other: 0		|
+	|0: 1be82511a7ba5bfd578c0eef466db59c	|
+	|1: dc84728fdcf89d93751d10a7c75c8cf2	|
+	|2: 2f5293a63acb | 9fe8c7b4e824b76d6a1d	|
+	|3: 9a2e2b5db6f31f19a14f75678eadaa90	|
+	|4: 4249b93e4dea0909479995b9c44b351a	|
+	|_______________________________________|
+
+	The last block is now 16 bytes of '\x10', just straight padding.
+	This means we can count a whole block (16) + 
 
