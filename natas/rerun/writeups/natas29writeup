@@ -1,0 +1,29 @@
+Perl is weird... very weird.
+
+Premise of this level is exploiting the fact that perls 'open' function (which should just read files) lets you also execute bash commands....
+
+So here you're presented with a list of files to read ('perl underground' 1-5).
+
+You can click on one to read it, changing the ?file= query to match.
+
+With open() in perl, you can pass in commands by putting a pipe prepending the filename
+
+so in this case, ?file='| echo a'
+
+Sending that prints 'a.txt'... so the perl script is appending .txt to the filename.
+
+Easy to resolve, cut off the command with a semicolon.
+
+?file='| echo a;'
+That outputs a!!! Nice!
+
+The next step would be to cat out the natas_webpass file right?
+
+Unfortunately after viewing the sourcecode, you can see that a regexp blocks out any file query with /natas/ in it.
+
+Easy to get around with a bit of thinking!
+
+Any file with permissions will be printed out by cat if you use wildcards, soooo:
+
+?file='| cat /etc/*_webpass/*;' dumps out natas29 and natas30's passwords! Sick.
+
