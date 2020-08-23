@@ -3,7 +3,7 @@ import re
 import requests
 from requests.auth import HTTPBasicAuth
 
-def get_pass():
+def inject_payload():
     #Username and Password for natas website/level
     passw = subprocess.run(['getpass', '27'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     auth = HTTPBasicAuth('natas27', passw.strip())
@@ -18,4 +18,4 @@ def get_pass():
     print(re.findall(passreg, r.text)[1])
 
 if __name__ == "__main__":
-    get_pass()
+    inject_payload()
