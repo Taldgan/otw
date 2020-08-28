@@ -1,0 +1,29 @@
+Leverages a very specific perl vulnerability from dbi/cgi
+
+perl 'quote()' takes in two inputs: the string to be 'quoted' and an optional 2nd parameter that dictates the 'type' of the string being quoted.
+
+Passing in the integer '2' as the optional parameter makes the string be treated as an integer thereby not quoting it....????
+
+as such when the website calls:
+__________________________________________________________________________________________________________________________
+"Select * FROM users where username =".$dbh->quote(param('username')) . " and password =".$dbh->quote(param('password'))
+__________________________________________________________________________________________________________________________
+
+by passing in
+_______________________________________________
+?username=natas31&password=''+OR+1=1&password=2
+_______________________________________________
+
+you bypass the 'quote' method and send in
+
+'Select * FROM users where username ='natas31' and password = '' OR 1=1;
+
+which dumps out every user / pass in the database. Yikes.
+
+Thanks, perl!
+
+
+
+
+
+
