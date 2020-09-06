@@ -1,0 +1,11 @@
+Very similar to the last level, except it requires you to get command execution.
+
+For some reason it is quite buggy, only letting certain commands work with multiple arguments (and being overall a buggy mess).
+
+Either way, eventually after enough experimentation, I figured out that you can get ls to work if you also pass '.' so you have:
+
+`index.pl?ls%20.%20|`
+
+This lists the webroot where a file 'getpassword.c' and a binary 'getpassword' exists.
+
+run `index.pl?./getpassword%20|` and it dumps out natas33's pass! Almost done!!!
