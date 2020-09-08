@@ -1,1 +1,4 @@
-0cb1ccf0e9a50711ffbab056174bc13b
+<?php
+
+	print md5_file($argv[1]) . "\n";
+?>

