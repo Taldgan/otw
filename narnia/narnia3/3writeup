@@ -1,0 +1,58 @@
+Strange level!!!
+
+Like the last one, it features the use of the nice and vulnerable strcpy, allowing for a buffer overflow.
+
+Unfortunately, the main method doesn't return anything in the source code for level 3, so that's out of the question.
+
+What does happen in 3, is it copies the contents of the filename supplied in the first argument to another file, namely /dev/null.
+
+Fortunately for us, instead of doing that directly, the outputfile is also a variable, vulnerable to being changed through a buffer overflow.
+____________________________________________________________________________________________________
+ int  ifd,  ofd;
+    char ofile[16] = "/dev/null";  						       #Outputfile var, 16 bytes
+    char ifile[32];								       #Inputfile var, 32 bytes	
+    char buf[32];								       #Buffer used to read contents in from file
+
+    /* open files */
+    strcpy(ifile, argv[1]);               					       #Vulnerable line
+_____________________________________________________________________________________________________
+
+
+So the 'ofile' is opened to read/write, with narnia4 permissions.
+
+Basically, the goal is to make the input file be /etc/narnia_pass/narnia4, and the output file be one we can read, as opposed to /dev/null.
+
+
+Upon some experimentation, I found that the ofile is overwritten IMMEDIATELY after the inputfile's buffer (32 bytes) is full, so:
+
+
+	   Input                    Output
+________________________________________________
+iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiioooooooooooooooo
+________________________________________________
+
+Although passing in '/etc/narnia_pass/narnia4AAAABBBB/tmp/whatever' does successfully alter the output file to /tmp/whatever in the stack,
+
+when it tries to open the inputfile, since the buffer is a whole 32 bytes, the inputfile ends up being /etc/narnia_pass/narnia4AAAABBBB, which isn't what we want...
+
+Although I tried to separte the arguments with spaces, that also does not work...
+
+The solution was to use symlinks!
+
+Since we have write permissions in /tmp, I created the directory '/tmp/taldgan4/thisisalongfilenam/tmp/td'. Inside I put a symlink to /etc/narnia_pass/narnia4 with
+
+'ln -s /etc/narnia_pass/narnia4 p', ultimately creating the file '/tmp/taldgan4/thisisalongfilenam/tmp/td/p'.
+
+From there, I created the directory '/tmp/td', and an empty file 'p' was put inside so 'open()' could write to it.
+
+Upon running, the stack showed the output file was /tmp/td/p, and the input file was '/tmp/taldgan4/thisisalongfilenam/tmp/td/p'.
+
+Both files opened successfully, and the prog outputted that the contents of ifile were written to ofile!
+
+Reading /tmp/td/p, the password was stored! Woo!
+
+The payload (python2):
+_______________________________________________________
+payload = b'/tmp/taldgan4/thisisalongfilenam/tmp/td/p'
+print(payload)
+_______________________________________________________
