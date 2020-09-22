@@ -1,0 +1,11 @@
+Turns out that for narnia2, the more common action would be to put the shellcode inside of an environment variable, and redirect execution to the memory address for the environment variable.
+
+This is because their memory addresses are more stable/predictable than the stacks...
+
+Fortunately for me, since I didn't do that, narnia4 was extremely simple...
+
+Exactly the same as what I did for narnia 2, find the bytes for 'jump esp',
+
+overflow the buffer being copied with strcpy() to overwrite the return address,
+
+and execute shellcode. Easy.
