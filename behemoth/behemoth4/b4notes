@@ -1,0 +1,47 @@
+------------------------------------------------------------
+undefined4 main(void)
+{
+    undefined pidFile [4];
+    int32_t var_28h;
+    int32_t unsure; //???
+    File*   fileP;
+    int32_t ppid;
+    int32_t var_ch;
+    undefined *puStack12;
+    int32_t var_4h;
+
+    puStack12 = &stack0x00000004;
+    ppid = sym.imp.getpid();
+    sym.imp.sprintf(pidFile, "/tmp/%d", ppid);
+    fileP = sym.imp.fopen(pidFile, 0x80486c8);
+    if (fileP == 0) {
+        sym.imp.puts("PID not found!");
+    } else {
+        sym.imp.sleep(1);
+        sym.imp.puts("Finished sleeping, fgetcing");
+        while( true ) {
+            unsure = sym.imp.fgetc(fileP);
+            if (unsure == -1) break;
+            sym.imp.putchar(unsure);
+        }
+        sym.imp.fclose(fileP);
+    }
+    return 0;
+}
+------------------------------------------------------------
+
+Seems that behemoth 4 does several things...
+
+- attempts to get pid of itself
+- then it writes the pid into a string/filename (pidFile) '/tmp/ppid'
+- attempts to open the file with fopen (returns 0/null if error, otherwise returns file pointer fileP here)
+
+- process sleeps for one second
+
+runs until eof (fgetc), reading a file
+dumps the contents of the file into stdout using putchar
+closes
+
+
+Idea... if you can control pid of a program, you can create a file in /tmp/controlledpid
+that is a symbolic link to behemoth5... then behemoth 4 will read the file out for us!
