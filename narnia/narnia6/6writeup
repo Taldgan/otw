@@ -11,7 +11,8 @@ Unfortunately, putting shellcode on the stack isn't a possibility bc the code al
 
 The solution is to find a function we can use in glibc, like system()!
 
-After a bit of testing, I found that a second argv value of the size below allows me to insert my own address into the function pointer |
+After a bit of testing, I found that a second argv value of the size below allows me to insert my own address into the function pointer 
+					 |
 					 V
 ___________________________________________________ 
 r "/bin/sh" "AAAAAAAABBBBCCCCaddresshereonout"
