@@ -1,0 +1,9 @@
+socket(2, 2, 0) < DGRAM IP socket type
+
+after opening /etc/behemoth_pass/behemoth6 using fopen, b5:
+ - sets a variable to ftell(file)+1 (size of file)
+ - reads file into a variable using fgets
+ - then opens a socket...
+ - sends the data over socket using sendto ON PORT 1337!!!
+
+

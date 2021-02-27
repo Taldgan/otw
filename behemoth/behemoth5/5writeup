@@ -1,0 +1,17 @@
+Took a bit of learning about the basics of sockets, and some time reading the decompiled code from behemoth5 but it is done!
+
+behemoth5 does a few weird things that gave me trouble.
+
+The first is using 'fseek' and 'ftell', the latter of which determines how many
+bytes to read in a file (in this case), and the former sets where in the file
+the stream is.
+
+After this, it opens a socket using socket(2, 2, 0) (which turned out to be DGRAM IP) with the host being localhost... 
+
+lastly it set the port to 1337! 
+
+Since it read in /etc/behemoth_pass/behemoth6 in before the fseek and ftell parts,
+it sends that data over the socket to a service listening on that port.
+Just had to run the file with a netcat server running
+
+'nc -l -u -p 1337' 
