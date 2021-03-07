@@ -1,0 +1,13 @@
+deals with argc & argv...
+eventually '*(argv+4)' will be strpcy'd into a new variable *just* before return...
+likely just a buffer overflow to change return address to shellcode or something else (system?)
+
+
+checks if argv (I think) is printable and quits if it isn't
+I think I need to write shellcode with bytes *only* in the printable range o_o
+could write it and use the SUB shellcode thing
+
+seems to have to be shorter than 511 bytes
+
+Got output with testing with one byte \0x02 as argv[1]... 
+'Non-alpha chars found in string, possible shellcode!'
