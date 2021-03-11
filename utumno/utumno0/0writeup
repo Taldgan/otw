@@ -1,0 +1,165 @@
+Lots of confusion in this level, and I'm not quite satisfied with how my solve went.
+
+Alas, it is done and I DID learn something so it was worth it.
+
+I was/am unable to copy the utumno0 bin file to my device - because it doesn't have read permissions.
+
+All it has are execute permissions... and running '/utumno/utumno0' only outputs 'Read me! :P'... thanks.
+
+I suppose the important realizations for this level were two things:
+ - That a program that is executed is loaded into memory (and all of the instructions in bits...)
+ - That in C, you can print essentially any part of a program's memory using memory addresses/pointers assigned manually (0xADDRESS)
+
+My initial thought for solving this level was to use some sort of utility that could take the running executable and 
+recreate a copy of the bin file for my own purpose... then I'd debug or read it myself.
+
+I found one stackoverflow thread dicussing how one would do this, and multiple people suggested:
+ - xocopy
+ - unexec
+ - github/Samuirai/dumpcode.c
+
+Unfortunately... none of them worked with utumno0 for a variety of reasons.
+
+With some time, I was fortunate (or unfortunate) in finding somebody else's folder inside of the /tmp/ directory (poorly named, /tmp/u0).
+
+Inside they had a copy of 'xocopy', but also two files... hookputs.o and hookputs.so. Interesting...
+
+Turns out, I was approaching this level incorrectly - the solution was to use something called 'function hooking'.
+
+This essentially allows one to hijack external library functions and insert their own code into them.
+
+'.so' files are actually shared object library files -- they contain code that is loaded and used during the RUNTIME of a program.
+Normal libraries on the other hand, are usually loaded statically during compile time.
+
+On top of that, if you set the 'LD_PRELOAD' environment variable before you execute a C prog, it will load that library
+BEFORE any of the others... This means you can essentially hijack and overwrite common library functions with your own.
+
+That being said, there is a catch - programs with the setuid bit will not use the LD_PRELOAD env variable, so you can't
+use function hooking in setuid programs (i.e. to get a root shell or something on a root-owned setuid program that prints 'hello').
+
+Fortunately, utumno0 does not use a setuid bit and just wants us to 'read' the file.
+
+Thinking back to 'utumno0', it definitely is using some sort of external libary function -- either 'puts' or 'printf'
+in order to print the 'Read me! :P' message.
+
+As such, lets try to hook the easier one first, puts!
+		
+						   examplehook.c
+				  ______________________________________________
+				 | #include <string.h>				|
+				 | #include <stdio.h>				|
+				 | #include <unistd.h>				|
+				 | #include <dlfcn.h>				|
+				 | 						|
+				 | int puts(const char *message){		|
+				 |     int (*new_puts)(const char *message);	|
+				 |     int result;				|
+				 |     new_puts = dlsym(RTLD_NEXT, "puts");	|
+				 |     result = new_puts("Hooked!");		|
+				 |     return result;				|
+				 | }						|
+				 |______________________________________________|
+
+			Compile this ^ as a shared object library and set LD_PRELOAD:
+
+______________________________________________________________________________________
+λ ~/path/to/hook/
+λ ~/path/to/hook/ gcc examplehook.c -o examplehook.so -fPIC -shared -ldl -D_GNU_SOURCE
+λ ~/path/to/hook/ export LD_PRELOAD="/path/to/hook/examplehook.so"
+______________________________________________________________________________________
+
+Now running a file like utumno0:
+
+						   helloworld.c
+				  ______________________________________________
+				 | #include <stdio.h>				|
+				 | 						|
+				 | int main(void){				|
+				 |     puts("Hello, World!");			|
+				 |     return 0;				|
+				 | }						|
+				 |______________________________________________|
+
+
+______________________________
+λ ~/path/to/hook/ ./helloworld
+Hooked!
+λ ~/path/to/hook/ Hooked!
+______________________________
+
+So it outputs 'Hooked!' instead of 'Hello, World!' Nice.
+
+Same would happen if you ran /utumno/utumno0 with LD_PRELOAD set to that shared library!
+
+So how do we build an executable to 'read' the right things from utumno0?
+
+								      hook.so
+	  ______________________________________________________________________________________________________________________________
+	 |																|
+	 | #include <string.h>														|
+	 | #include <stdio.h>														|
+	 | #include <unistd.h>														|
+	 | #include <dlfcn.h>														|
+	 |																|
+	 | int puts(const char *message){												|
+	 |     int (*new_puts)(const char *message);											|
+	 |     int result;														|
+	 |     new_puts = dlsym(RTLD_NEXT, "puts"); //Assign funcP address to the real puts						|
+	 |     //printf("%x %x %x %x %x %x %x %x %x %x %x %x %x ", "ee"); //Print bytes in the stack, allows to find			|
+	 | 	//addresses containing strings (0x80XXXXXX)										|
+	 |     int i;															|
+	 |     char* p = 0x8048489;  //After playing around with output, this address contains the starting point for 'password: '	|
+	 |     for(i = 0; i < 28; i++){													|
+	 |         putchar(*(p+i));		//Print 28 chars of the 'password: ' string using this address				|
+	 |     }															|
+	 |     result = new_puts("");													|
+	 |     return result;														|
+	 | }																|
+	 |______________________________________________________________________________________________________________________________|
+
+At this point, this file here ^ prints out the necessary string we wanted to find inside of utumno0 ('password: utumno1pass')
+I refined the address, size of the loop, and got rid of the extra printf which was now unneeded.
+
+To get to this point, however:
+ - use %x's to print out the stack until we find some addresses that likely point to strings 
+ _____________________________________
+| f7f3841c f238cbad .... 80448400 ... |
+|_____________________________________|
+
+ - once a usable address in the data section is found (0x80XXXXX), create a char pointer with that address
+ - then a bunch of chars to read out ascii inside of the executable
+
+ Doing that, you get an ugly output, but inside you can spot the string 'password: utumno1pass'
+
+ Example output:
+__________________________________________________________________
+ ?]{^         a*;alkjDD=c09/ - - - .=. C            ..
+
+
+
+.=?        unReAdaBle_sTuFf>>^!<#;  password: utumno1pass<]%!
+ <81{[>         -...
+__________________________________________________________________
+
+From then on... I just fine-tuned the address/loop to make the output pretty
+
+The hook.c above being the 'fine-tuned' version, '/utumno/utumno0' outputs
+
+'password: utumno1pass' when that hook.c is compiled as a .so and preloaded .
+
+utumno0 complete...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
