@@ -1,0 +1,34 @@
+Interesting level, taught me a bit about how the environment variables are loaded into memory.
+
+I don't want to go to depth into this write up, a lot of the confusion was figuring out how
+to pass anything into a program with a null argv.
+                                
+                                   utumno2.main
+                          _____________________________
+                         │                             │
+                         │      push ebp               │
+                         │      mov ebp, esp           │
+                         │      sub esp, 0xc           │
+                         │      cmp dword [argv], 0    │
+                         │  ┌─< je 0x804846b           │
+                         │  │   push str.Aw..          │
+                         │  │   call sym.imp.puts      │
+                         │  │   add esp, 4             │
+                         │  │   push 1                 │
+                         │  │   call sym.imp.exit      │
+                         │  └─> mov eax, dword [envp]  │
+                         │      add eax, 0x28          │     
+                         │      mov eax, dword [eax]   │
+                         │      push eax               │
+                         │      lea eax, [var_ch]      │
+                         │      push eax               │
+                         │      call sym.imp.strcpy    │    
+                         │      add esp, 8             │
+                         │      mov eax, 0             │   
+                         │      leave                  │  
+                         │      ret                    │
+                         │_____________________________│
+
+
+                The gist of this level, is it 
+
