@@ -1,6 +1,6 @@
 Interesting level, taught me a bit about how the environment variables are loaded into memory.
 
-I don't want to go to depth into this write up, a lot of the confusion was figuring out how
+I don't want to go too in-depth into this write up, a lot of the confusion was figuring out how
 to pass anything into a program with a null argv.
                                 
                                    utumno2.main
