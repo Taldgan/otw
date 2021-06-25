@@ -1,0 +1,18 @@
+/tmp/128ecf542a35ac5270a87dc740918404
+^ make this file a symblic link to /etc/maze_pass/maze1
+maze0 will read the password and dump it to stdout.
+(or so I thought... access actually follows symbolic links (of course)...)
+Since access is used BEFORE setresuid, the file being accessed needs read permissions for maze0....
+not sure where to go with this yet.
+
+tried:
+ - physical links
+ - symbolic link to a symbolic link
+
+
+file informatino
+maze0@maze:/tmp$ ls -al /maze/maze0
+-r-sr-x--- 1 maze1 maze0 8204 Aug 26  2019 /maze/maze0
+
+
+
