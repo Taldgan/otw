@@ -1,0 +1,26 @@
+Super simple level.
+
+The executable asks for a password, checked w/ strcmp.
+
+If the password is correct, it grants a setuid shell for the user!
+
+The password is loosely 'encrypted' using memfrob (xor's the characters in the string with the number 42).
+
+All there is to solve the level is to unencrypt the password!
+
+				undopass.c
+	┌─────────────────────────────────────────────────────┐
+	│                                                     │
+	│ #define _GNU_SOURCE                                 │
+	│ #include <string.h>                                 │
+	│ #include <stdio.h>                                  │
+	│                                                     │
+	│ int main(void){                                     │
+	│	char encrypted[11] = "OK^GSYBEX^Y";           │
+	│	printf("Pass: %s\n", memfrob(encrypted, 11)); │
+	│ }                                                   │
+	└─────────────────────────────────────────────────────┘
+
+The 'encrypted' password was found through static analysis.
+
+Unencrypted, it is 'eatmyshorts'.
