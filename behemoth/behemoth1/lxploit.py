@@ -5,7 +5,7 @@ OVERFLOW = 71
 
 context.arch = 'i386'
 binary = ELF("behemoth1")
-libc = ELF("libc.so.6")
+libc = ELF("/usr/lib32/libc.so.6")
 
 rop = ROP(binary)
 
