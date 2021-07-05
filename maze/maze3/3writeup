@@ -1,0 +1,122 @@
+What a cool level!!!
+
+Once again, really simple - albeit a bit confusing at first glance.
+
+Even though the binary isn't actually stripped, the only symbol is a function that writes a message to stdout ('./level4 ev0lcmds!')
+
+
+The entirety of maze3's relevant binary, which is an altered '_start':
+
+               print_msg()             
+┌─────────────────────────────────────┐
+│ mov eax, 4                          │
+│ mov ebx, 1                          │
+│ pop ecx                             │
+│ mov edx, 0x14                       │
+│ int 0x80                            │ ;just for reference, writes './level4 ev0lcmds!' to stdout│
+│ mov eax, 1                          │
+│ int 0x80                            │
+└─────────────────────────────────────┘
+
+                               maze3: 
+┌─────────────────────────────────────────────────────────────────┐
+│      'setup'/block 1                                            │
+│     ┌──────────────┐                                            │
+│     │ pop eax      │                                            │
+│     │ dec eax      │                                            │
+│     │ jne loc.fine │                                            │
+│     └──────────────┘                                            │
+│             f t                                                 │
+│             │ │                                                 │
+│             │ └─────────────┐                                   │
+│        ┌────┘               │                                   │
+│        │                    │                                   │?
+│    ┌────────────────────┐   │                                   │
+│    │ call print_msg();  │   │                                   │
+│    └────────────────────┘   │                                   │
+│     ^                  'fine'/block 2                           │
+│     │             ┌──────────────────────┐                      │
+│print './level4...'│ pop eax              │                      │
+│ function          │ mov eax 0x7d         │                      │
+│                   │ mov ebx, entry0      │                      │
+│                   │ and ebx, 0xfffff000  │                      │
+│                   │ mov ecx, 0x97        │                      │
+│                   │ mov edx, 7           │                      │
+│                   │ int 0x80             │                      │
+│                   │ lea esi, loc.d1      │                      │
+│                   │ mov edi, esi         │                      │
+│                   │ mov ecx, 0x2c        │                      │
+│                   │ mov edx, 0x12345678  │                      │
+│                   └──────────────────────┘                      │
+│                       v                                         │
+│    ┌────────┐         │                                         │
+│    │        │   'loop'/block 3                                  │
+│    │┌─────────────────────────────┐                             │
+│    ││ lodsd eax, dword [esi]      │                             │
+│    ││ xor eax, edx                │                             │
+│    ││ stosd dword es:[edi], eax   │                             │
+│    ││ loop loc.l1                 │                             │
+│    │└─────────────────────────────┘                             │
+│    │        f t                                                 │
+│    │        │ │                                                 │
+│    └──────────┘                                                 │
+│             │                                                   │
+│             │                                                   │
+│      'mystery'/block 4                                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+The general flow of this prog, is it starts at block 1...
+Since the first value on the stack is argc, the first block checks that arc is greater than 0.
+
+If it isn't, it prints that './level4 ev0lcmds!' message and quits.
+
+Otherwise it goes to block 2... this block does the m_protect syscall with the region of entry to entry+151.
+
+The protections put in place are PROT_EXEC, PROT_READ, and PROT_WRITE (which bitwise or'd together = 7).
+
+This means memory in this region can be written to, read, and executed.
+Afterward, it loads some values for the coming 'loop' block into some registers, and goes to the loop block.
+
+This is where static analysis makes this level difficult... debugging really came in handy.
+The x86 'loop' instruction runs until ecx is 0, decrementing ecx after each loop -- in this case running 44 times.
+
+What this block does, is each time it runs it alters the code of the coming 'mystery' block... eventually changing it from gibberish
+asm into an execve('/bin/sh') piece of assembly!:
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                                 'mystery' block                      │                                                             
+│                     ┌─────────────────────────────────────┐          │                                                                                         
+│                     │ pop eax                             │          │                                                                                         
+│                     │ cmp dword [eax], 0x1337c0de         │          │                                                                                         
+│                     │ jne 0x80480ed                       │          │                                                                                         
+│                     └─────────────────────────────────────┘          │                                                                                         
+│                             f t                                      │                                                             
+│                             │ │                                      │                                                             
+│                             │ └──────────────────────────┐           │                                                                                        
+│             ┌───────────────┘                            │           │                                                                                        
+│             │                                            │           │                                                                                        
+│             │    execve('/bin/sh') block                 │           │                                                                                        
+│       ┌─────────────────────────────────────┐            │           │                                                                                        
+│       │ xor eax, eax                        │            │           │                                                                                        
+│       │ push eax                            │            │           │                                                                                        
+│       │ push 0x68732f2f   ;'//sh'           │            │           │                                                                                        
+│       │ push 0x6e69622f   ;'/bin'           │            │           │                                                                                        
+│       │ mov ebx, esp                        │            │           │                                                                                        
+│       │ push eax                            │            │           │                                                                                        
+│       │ push ebx                            │            │           │                                                                                        
+│       │ mov ecx, esp                        │            │           │                                                                                        
+│       │ xor edx, edx                        │            │           │                                                                                        
+│       │ mov al, 0xb                         │            │           │                                                                                        
+│       │ int 0x80                            │            │           │                                                                                        
+│       └─────────────────────────────────────┘            │           │                                                                                        
+│                                                          │           │                                                                                        
+│                                                         exit...      │                                                                                             
+└──────────────────────────────────────────────────────────────────────┘
+
+Now this is what's left after the 'loop' block finishes... it pops the top of the stack into eax - which at this point is the location of argv...
+then it checks if a dword at that location is equal to 0x1337c0de (lol)
+
+If so, it executes /bin/sh for us!!!
+
+All this means is that we have to run /maze/maze3 with '0x1337c0de' as the argument to get a shell!
