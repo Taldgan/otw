@@ -6,7 +6,7 @@ To start, it checks that the file is accessible using open and stat.
 If so, then it reads 52 bytes, lseeks, then reads in 32 more bytes.
 
 These 2 reads are important, as they allow you to override certain sections of the stack in order
-to make the coming checks to be successful... 
+to make the coming checks successful... 
 
 Here are the specific bytes needed in the binary file being read in order to pass the checks:
 
