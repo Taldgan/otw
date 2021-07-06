@@ -1,0 +1,4 @@
+#!/usr/bin/rarun2
+stdin=m5input
+stdout=/dev/pts/3
+clearenv=true
