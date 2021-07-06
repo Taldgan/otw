@@ -115,20 +115,20 @@ Following instructions there, and adapting it to my use, I wrote this assembly f
 		│  phdrsize      equ     $ - phdr                                               │
 		│                                                                               │
 		│  _start:                                                                      │
-		│	xor eax, eax                                                            │
-		│	xor ebx, ebx                                                            │
-		│	xor ecx, ecx                                                            │
-		│	xor edx, edx                                                            │
-		│	push eax                                                                │
-		│	push 0x68732f2f                                                         │
-		│	push 0x6e69622f                                                         │
-		│	lea ecx, [esp]                                                          │
-		│	push eax                                                                │
-		│	push ecx                                                                │
-		│	mov ebx, [esp]                                                          │
-		│	mov ecx, esp                                                            │
-		│	mov al, 11                                                              │
-		│	int 0x80                                                                │
+		│       xor eax, eax                                                            │
+		│       xor ebx, ebx                                                            │
+		│       xor ecx, ecx                                                            │
+		│       xor edx, edx                                                            │
+		│       push eax                                                                │
+		│       push 0x68732f2f                                                         │
+		│       push 0x6e69622f                                                         │
+		│       lea ecx, [esp]                                                          │
+		│       push eax                                                                │
+		│       push ecx                                                                │
+		│       mov ebx, [esp]                                                          │
+		│       mov ecx, esp                                                            │
+		│       mov al, 11                                                              │
+		│       int 0x80                                                                │
 		│  filesize      equ     $ - $$                                                 │
 		└───────────────────────────────────────────────────────────────────────────────┘
 
