@@ -10,40 +10,185 @@ maze5 input:
 │ DP:EFB61 │
 └──────────┘ 
 
-  maze 5 main (post user input and length check)
+
+
+                  maze 5 main part 1.5:
 ┌───────────────────────────────────────────────────┐
 │        │ │                                        │           
 │       ┌│─┘                │                       │
 │       │└────────────────┐ │                       │
 │       │           ┌──────────────────────────────┐│
 │       │           │  push str.Wrong_length_you_; ││
-│       │           │  call sym.imp.puts;          ││
+│       │           │  call sym.imp.puts           ││
 │       │           │  add esp, 4                  ││
-│       │           │  push 0xffffffffffffffff;    ││
-│       │           │  call sym.imp.exit;          ││
+│       │           │  push 0xffffffffffffffff     ││
+│       │           │  call sym.imp.exit           ││
 │       │           └──────────────────────────────┘│
 │       │               v                           │
 │       │        ┌──────┘                           │
 │       └──────────┐                                │
 │                │ │                                │
 │          ┌──────────────────────┐                 │
-│          │  push 0;             │                 │
+│          │  push 0              │                 │
 │          │  push 0              │                 │
 │          │  push 0              │                 │
 │          │  push 0              │                 │
 │          │  call sym.imp.ptrace;│                 │
 │          │  add esp, 0x10       │                 │
+│          │  test eax, eax       │                 │
+│          │  je 0x8048694        │                 │
 │          └──────────────────────┘                 │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
-│                                                   │
+│                 f t                               │
+│                 │ │                               │
 └───────────────────────────────────────────────────┘
+
+
+As you can see up above, the binary checks the length of the user input username and password, and passes them
+off to strlen. If EITHER are not exactly 8 characters in length, it goes to that block on the right (puts 'Wrong length you!' and exit).
+
+Next, the basic 'reversing mitigation' I mentioned earlier is performed -- it calls ptrace(0, 0, 0, 0) also known as ptrace(PTRACE_TRACEME, 0, 0, 0).
+
+Because of the PTRACE_TRACEME arg, it works a bit differently than the normal ptrace. It ignores args 2-4 and returns -1 IF the parent process is tracing it.
+In this case, if it returns -1 it reaches this block:
+┌──────────────────────┐
+│ push str._nnahnah...;│
+│ call sym.imp.puts;   │
+│ add esp, 4           │
+│ mov eax, 0;          │
+│ jmp LEAVE_RET        │
+└──────────────────────┘
+This is to attempt to prevent dynamic analysis/tracing... but we can subvert it by setting eax to 0 when the 'test eax, eax' operation above is performed. (line 38 of this doc)
+If ptrace(0, 0, 0, 0) returns 0, it sets up and calls the meat of this level, which is the 'foo' function.
+
+foo figure 1.
+                                        maze5.foo():
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                 setup block, pushes 'printlol' onto stack                             │
+│             ┌──────────────────────────────────┐                                      │
+│             │ push ebp;                        │                                      │
+│             │ mov ebp, esp                     │                                      │
+│             │ sub esp, 0x14                    │                                      │
+│             │ mov dword [var_11h], 0x6e697270; │                                      │
+│             │ mov dword [var_dh], 0x6c6f6c74   │                                      │
+│             │ mov byte [p], 0                  │ ; push 'printlol' onto stack         │
+│             │ mov dword [counter], 0;          │                                      │
+│             │ jmp 0x804859c                    │                                      │
+│             └──────────────────────────────────┘                                      │
+│                 v                                                                     │
+│                 │                                                                     │
+│                 └───────┐                                                             │
+│    ┌──────────────────────┐                                                           │
+│    │                    │ │ while block 1, continues loop until counter = 8           │
+│    │              ┌──────────────────────────────────────┐                            │
+│    │              │ push dword [username];               │                            │
+│    │              │ call sym.imp.strlen;                 │                            │
+│    │              │ add esp, 4                           │                            │
+│    │              │ mov edx, eax                         │                            │
+│    │              │ mov eax, dword [counter]             │                            │
+│    │              │ cmp edx, eax                         │                            │
+│    │              │ ja 0x804855c                         │                            │
+│    │              └──────────────────────────────────────┘                            │
+│    │                    t f                                                           │
+│    │                    │ │                                                           │
+│    │    ┌───────────────┘ │                                                           │
+│    │    │                 └─────────────────────────────┐                             │
+│    │    │ while block 2, performs operations            │  loop ends                  │
+│    │┌───────────────────────────┐                    ┌───────────────────┐            │
+│    ││ mov edx, dword [counter]; │                    │ jmp 0x80485d3;    │            │
+│    ││ mov eax, dword [username] │                    └───────────────────┘            │
+│    ││ add eax, edx              │                        v                            │
+│    ││ movzx eax, byte [eax]     │                        │                            │
+│    ││ movsx eax, al             │                        │                            │
+│    ││ sub eax, 0x41             │                        │                            │
+│    ││ ...                       │                        │                            │
+│    ││ jmp whileblock1           │                        │                            │
+│    │└───────────────────────────┘                        │                            │
+│    │    v                                                │                            │
+│    │    │                                                v                            │
+│    └────┘                                  ; continues to next section of foo         │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+
+In foo figure 1 above, there are several pieces that are important.
+
+First, the setup block pushes 'printlol' onto the stack. This string gets manipulated in the following blocks, and then
+gets compared to the password.
+
+'while block 1' compares the length of username with the counter variable, which runs 8 times.
+
+While true, it performs multiple operations on the printlol string, altering it based off of the username provided by the user.
+
+Once the loop runs 8 times, we end with an altered string - in this case 'printlol' with 'maldgann' as the username becomes 'DB:EFB61'.
+
+The next section of foo is as follows:
+
+foo figure 2.
+                          maze.foo():
+┌───────────────────────────────────────────────────────────┐
+│                  │                                        │
+│  ┌─────────────────┐                                      │
+│  │               │ │  while block 1, run til counter = 0  │
+│  │         ┌──────────────────────────┐                   │
+│  │         │ mov eax, dword [var_4h]; │                   │
+│  │         │ lea edx, [eax - 1]       │                   │
+│  │         │ mov dword [var_4h], edx  │                   │
+│  │         │ test eax, eax            │                   │
+│  │         │ jne 0x80485b2            │                   │
+│  │         └──────────────────────────┘                   │
+│  │               t f                                      │
+│  │               │ │                                      │
+│  │    ┌──────────┘ │                                      │
+│  │    │            └──────────────────────────┐           │
+│  │    │    while block 2                      │ win cond. │
+│  │┌───────────────────────────────────┐   ┌─────────────┐ │
+│  ││ lea edx, [var_11h];               │   │ mov eax, 1; │ │
+│  ││ mov eax, dword [var_4h]           │   └─────────────┘ │
+│  ││ add eax, edx                      │       v           │
+│  ││ movzx edx, byte [eax]             │       │           │
+│  ││ mov ecx, dword [var_4h]           │       │           │
+│  ││ mov eax, dword [arg_ch]           │       │           │
+│  ││ add eax, ecx                      │       │           │
+│  ││ movzx eax, byte [eax]             │       │           │
+│  ││ cmp dl, al                        │       │           │
+│  ││ je 0x80485d3                      │       │           │
+│  │└───────────────────────────────────┘       │           │
+│  │        f t                                 │           │
+│  │        │ │                                 │           │
+│  └──────────┘                                 │           │
+│       ┌───┘                       ┌───────────┘           │
+│       │ fail condition            │                       │
+│   ┌──────────────┐                │                       │
+│   │ mov eax, 0;  │                │                       │
+│   │ jmp 0x80485e5│                │                       │
+│   └──────────────┘                │                       │
+│       v                           │                       │
+│       │                           │                       │
+└───────────────────────────────────────────────────────────┘
+
+This is the 2nd part of the foo function.
+
+After altering printlol, these next few blocks determine whether or not we get a shell.
+
+The main function checks the return value of foo, granting a shell if it is 1, otherwise it just exits.
+
+To get a shell, we have to make 'while block 2' succeed each time, lowering the counter to 0 (and reaching the win condition block).
+
+All we have to do to make while block 2, is make the altered 'printlol' string the same as our password: DB:EFB61
+
+It compares the altered 'printlol' to our password in reverse, checking printlol[7] through printlol[0] with the password.
+
+Upon each successful loop, the counter is decremented by 1 until it becomes 0, at which point foo() returns with the value 1!
+┌──────────────────────────────────┐
+│ push str._nYeh__heres_your_shell;│
+│ call sym.imp.puts;               │
+│ add esp, 4                       │
+│ ; 0x80487c3                      │
+│ ; "/bin/sh"                      │
+│ push str._bin_sh;                │
+│ call sym.imp.system;             │
+│ add esp, 4                       │
+│ jmp 0x80486d1                    │
+└──────────────────────────────────┘
+
+That makes main reach this block ^, granting privileged shell!
+
+
