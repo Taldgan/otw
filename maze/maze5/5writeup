@@ -10,7 +10,7 @@ maze5 input:
 │ DP:EFB61 │
 └──────────┘ 
 
-  maze 5 main (post user input and checking length)
+  maze 5 main (post user input and length check)
 ┌───────────────────────────────────────────────────┐
 │        │ │                                        │           
 │       ┌│─┘                │                       │
@@ -34,4 +34,16 @@ maze5 input:
 │          │  call sym.imp.ptrace;│                 │
 │          │  add esp, 0x10       │                 │
 │          └──────────────────────┘                 │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
+│                                                   │
 └───────────────────────────────────────────────────┘
