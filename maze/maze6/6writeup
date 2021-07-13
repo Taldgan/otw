@@ -1,0 +1,50 @@
+Source explaining file structure exploitation! Really helpful. - https://dhavalkapil.com/blogs/FILE-Structure-Exploitation/
+
+That blog also linked this presentation, which explained file structures really well - https://www.slideshare.net/AngelBoy1/play-with-file-structure-yet-another-binary-exploit-technique
+
+Wow... compared to the rest of maze this level is pretty tough!
+It leveraged an exploit I had no clue existed, and taught me a lot about how files work in C.
+
+If we were to rougly recreate the source code, it'd look like this:
+
+                        maze6.c (recreated):
+┌─────────────────────────────────────────────────────────────┐
+│  int main(int argc, char*[] argv){                          │
+│      if(argc != 3){                                         │
+│          printf("%s file2write string\n", argv[0]);         │
+│          exit(-1);                                          │
+│      }                                                      │
+│      FILE* fp = fopen(argv[1], "a");                        │
+│      if(fp == 0){                                           │
+│          perror("fopen");                                   │
+│          exit(-1);                                          │
+│      }                                                      │
+│      char buf[???];                                         │
+│      strcpy(buf, argv[2]);                                  │
+│      memfrob(buf, strlen(buf));                             │
+│      fprintf(fp, "%s : %s\n", argv[1], buf);                │
+│      exit(0);                                               │
+│  }                                                          │
+└─────────────────────────────────────────────────────────────┘
+
+Running the executable with 2 arguments, 'public' and 'TEST', 
+this bin will open 'public' and append the string 'public : ~oy~' to the file.
+
+Fortunately since this bin uses strcpy, it has an opportunity for a buffer overflow... however
+there isn't any return happening in the main method, only exits.
+
+Unfortunately, this means that we can't just overwrite a return address and hop to shellcode, or a ret2libc.
+
+What we CAN overwrite is the value of fp inside of the stack, allowing us to point the file stream argument of fprintf to wherever we'd like.
+
+Before this level, I had no idea how file structs work, as well as lower level functions for file operations (such as fwrite, fread, fclose, FPRINTF,  etc...).
+
+Because of the way files in C work though, an overwritten file pointer can actually be quite dangerous!
+
+An overwritten file pointer in fprintf that points to a carefully constructed fake file struct can allow for arbitrary memory writing.
+In this level, although there is nowhere to *return* to, that allows us to just overwrite the plt location of any function (which is writable, such as exit). 
+
+We can then make exit actually point to shellcode that we put into the file to execve(/bin/sh)!
+
+The question is how?
+
