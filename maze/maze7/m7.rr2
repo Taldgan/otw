@@ -1,0 +1,9 @@
+#!/usr/bin/rarun2
+stdio=/dev/pts/4
+arg1=public
+
+#Locations:
+#bytes 32 thru 36 = arg2
+#bytes 50 & 51 = arg3
+#bytes 48 & 49 = arg4
+#bytes 46 & 47 = arg5
