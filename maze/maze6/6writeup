@@ -2,6 +2,9 @@ Source explaining file structure exploitation! Really helpful. - https://dhavalk
 
 That blog also linked this presentation, which explained file structures really well - https://www.slideshare.net/AngelBoy1/play-with-file-structure-yet-another-binary-exploit-technique
 
+and a paper with some explanations based off of some of the slides: 
+https://gsec.hitb.org/materials/sg2018/WHITEPAPERS/FILE%20Structures%20-%20Another%20Binary%20Exploitation%20Technique%20-%20An-Jie%20Yang.pdf
+
 Wow... compared to the rest of maze this level is pretty tough!
 It leveraged an exploit I had no clue existed, and taught me a lot about how files work in C.
 
@@ -48,3 +51,68 @@ We can then make exit actually point to shellcode that we put into the file to e
 
 The question is how?
 
+First - an explanation on the organization of the file struct in C
+
+Although unclear at first, using gdb I printed out the struct dereferenced during valid execution of the binary.
+ 
+                       maze6 valid file struct:
+       ┌───────────────────────────────────────────────────┐
+       │$fp = {                                            │
+       │  _flags           = 0xfbad3484,                   │ //Determines whether to read/write/append, as well as buffer status of file
+       │  _IO_read_ptr     = 0x0,                          │ //current location of read buffer
+       │  _IO_read_end     = 0x0,                          │ //end of read buffer
+       │  _IO_read_base    = 0x0,                          │ //beginning of read buffer
+       │  _IO_write_base   = 0x0,                          │ //beginning of write buffer
+       │  _IO_write_ptr    = 0x0,                          │ //current location of write buffer
+       │  _IO_write_end    = 0x0,                          │ //end of write buffer
+       │  _IO_buf_base     = 0x0,                          │ //beginning of reserve buffer
+       │  _IO_buf_end      = 0x0,                          │ //end of reserve buffer
+       │  _IO_save_base    = 0x0,                          │ 
+       │  _IO_backup_base  = 0x0,                          │
+       │  _IO_save_end     = 0x0,                          │
+       │  _markers         = 0x0,                          │
+       │  _chain           = 0xf7f97c40 <_IO_2_1_stderr_>, │ //pointer to chain (file (current location)->stderr->stdout->stdin)
+       │  _fileno          = 3,                            │ //file descriptor
+       │  _flags2          = 0,                            │
+       │  _old_offset      = 0,                            │
+       │  _cur_column      = 0,                            │
+       │  _vtable_offset   = 0 '\000',                     │
+       │  _shortbuf        = "",                           │
+       │  _lock            = 0x804a238,                    │ //Prevents fclose if file is locked? Has to be pointed to a null byte
+       │  _offset          = -1,                           │
+       │  __pad1           = x0,                           │
+       │  __pad2           = 0x804a244,                    │
+       │  __pad3           = 0x0,                          │
+       │  __pad4           = 0x0,                          │
+       │  __pad5           = 0,                            │
+       │  _mode            = 0,                            │
+       │  _unused2         = '\000' <repeats 39 times>     │
+       │  _vtable                                          │
+       │}                                                  │
+       └───────────────────────────────────────────────────┘
+
+Whenever a function like fprintf/fwrite/fclose is called with a filepointer (fp) as an argument,
+it accesses the vtable offset, and then dereferences the relevant functions inside of the vtable.
+
+For example, on a call to fread, the program accesses vtable->doallocate, where
+doallocate is at a specified offset in the vtable.
+
+This made attacks with a forged/fake vtable effective in the past, because if one knew a function such as fread would be called,
+passing in a fake vtable with the pointer to system() in the position of doallocate could be leveraged to net a shell.
+
+Unfortunately, the updated glibc as of version 2.24 now checks that the vtable pointer is legitimate, by ensuring it is within the valid
+__libc_IO_vtables section. If not, the program sigaborts.
+
+Regardless, there are valid vtable locations that can be used instead -- such as _IO_file_jumps (https://dhavalkapil.com/blogs/FILE-Structure-Exploitation/).
+
+This vtable is valid, AND contains the function _IO_str_overflow. _IO_str_overflow can be used to write to the location pointed to
+by _IO_buf_base, writing (_IO_buf_end-_IO_buf_base) bytes.
+
+The value it writes... honestly I'm not sure where it gets it from. After I set the bytes properly in my test payloads,
+it ended up pulling from argv[1]'s first four bytes... so all that has to be set is _IO_buf_base, and _IO_buf_end (which should be _IO_buf_base+7...
+it'll write the begging of the format string before it writes the four bytes we want).
+
+So to create the exploit, we'll push multiple items onto the stack with argv[1], overriding the file pointer.
+
+Through a lot of trial and tribulation, I found this order:
+shellcode_addr + 'TTRASH' + shellcode + cyclic(197) + fake_file_addr + cyclic(12) + busted_loc_addr + b'k'*9 + 'busted\x00' + busted_addr + 'FAKEFILE=' + fake_file(writeloc) + b'tras')
