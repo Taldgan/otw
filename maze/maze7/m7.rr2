@@ -7,3 +7,5 @@ arg1=public
 #bytes 50 & 51 = arg3
 #bytes 48 & 49 = arg4
 #bytes 46 & 47 = arg5
+#bytes @ 0x270 determine 2nd lseek size
+#bytes at 0x274 determine 2nd malloc size
