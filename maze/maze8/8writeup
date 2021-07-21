@@ -1,0 +1,90 @@
+Cool level, essentially works as a format string vulnerability level with a few extra steps.
+
+All the binary for this level does, is open a socket on the port passed in as the first argument that listens for a connection.
+Every time it receives a connection, it forks to handle it and continues to listen for more connections.
+
+Upon receiving a connection on that port, the fork sends 'Give the correct password to proceed: '.
+If you send back 'god\x00' (the 'correct' password), it prints 'Err... I was just joking... yes, go away.'
+
+Any other password (for instance, 'ABC123') sent makes the server respond with 'ABC123 is wrong ^_^'.
+
+The backend of the server (after establishing the connection and forking):
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│   ┌───────────────────────────────────────────────────────────┐           │
+│   │char *servermsg = "Give the correct password to proceed: " │           │
+│   │send(server, servermsg, strlen(servermsg), 0)              │           │
+│   │void serverbuf                                             │           │
+│   │*(recv(server, &serverbuf, 511, 0) + &serverbuf) = 0       │           │
+│   │char * answerbuf                                           │           │
+│   │if (strcmp("god", &serverbuf) != 0)                        │           │
+│   └───────────────────────────────────────────────────────────┘           │
+│                             f t                                           │ 
+│                             │ │                                           │
+│                             │ │                                           │
+│            ┌────────────────┘ └───────────────┐                           │
+│            │                                  │                           │
+│            │                                  │                           │
+│            │                        answer_buf = 'Err... joking' block    │
+│            │                                                     v        │
+│     vulnerable block                                             │        │
+│ ┌──────────────────────────────────────────────────────────┐     │        │
+│ │snprintf(&answerbuf, 0x200, &serverbuf)                   │     │        │
+│ │void* answer_buf_end = &answerbuf + strlen(&answerbuf) - 1│     │        │
+│ │*answer_buf_end = ' is wrong ^_^\n\x00'                   │     │        │
+│ └──────────────────────────────────────────────────────────┘     │        │
+│            v                                                     │        │
+│            │          ┌──────────────────────────────────────────┘        │
+│            │          │                                                   │
+│            └────┐┌────┘                                                   │
+│           ┌────────────────────────────────────────────────┐              │
+│           │send(server, &answerbuf, strlen(&answerbuf), 0) │              │
+│           │exit(0)                                         │              │
+│           └────────────────────────────────────────────────┘              │
+│                                                                           │
+│                                                                           │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+
+The child process that handles each connection actually uses snprintf to copy the data
+sent over the server into a variable BEFORE sending the '... is wrong ^_^' response back.
+
+Since the serverbuf variable is used to determine the format, we can pass in format modifiers to exploit the binary.
+
+This essentially turns the level into a basic format string vulnerability, similar to narnia5 & narnia7!
+
+*Note on debugging this level
+	To debug this, it took some setup - but I found it best to write a wrapper program (as per usual) to launch the program w/ a clean environment that has shellcode.
+
+	Then, debug the wrapper program with pwndbg (with bp on main), continue until maze is execve'd, and THEN set the breakpoint right after it tests the fork.
+	set follow-fork-mode to child too.
+
+	Now continue the main maze8 process - connecting to it with 'netcat localhost 6969' then causes a fork, and debugging continues with the child process.
+	After testing inputs, 'ps' to list processes, and then 'attach PID' to re-attach and continue the parent process.
+
+All that's really left for the level at this point, is to find out where our input is, and then overwrite exit in the plt like we did for maze 6.
+
+After some experimentation, with 8 bytes in front (the address of high and low order bytes of exit@got.plt), our input ends up being 135 & 134 dwords into the stack.
+
+Constructing the payload, we have 3 relevant addresses:
+
+exit@got.plt (high): 0x08049D1A 
+exit@got.plt (low): 0x08049D18
+shellcode addr: 0xffffdfc8
+0xffff = 65535
+0xdfc8 = 57288
+
+8 bytes to put low & high order 'exit' on the stack...
+print 57288-8 bytes to assign 0xdfc8 to lower order bytes,
+then add 8247 to write 0xffff to high order...
+
+
+
+Now to form the format string:
+'\x1A\x9d\x04\x08\x18\x9d\x04\x08%57280d%135$hn%8247d%134$hn'
+  └high order      └low order      └0xdfc8       └0xffff
+
+
+Executing the wrapper program (locally and on the server, fortunately)
+and connecting to the server with that as the password nets a shell!
