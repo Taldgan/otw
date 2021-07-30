@@ -4,10 +4,7 @@
 #include <stdio.h>
 
 
-#define e(); 
-if(((unsigned int)ptr & 0xff000000)==0xca000000) { 
-	setresuid(geteuid(), geteuid(), geteuid()); execlp("/bin/sh", "sh", "-i", NULL); }
-
+#define e(); printf("PTR: %u\nHEX: 0x%08x\n", (unsigned int)ptr,(unsigned int)ptr);if(((unsigned int)ptr & 0xff000000)==0xca000000) { setresuid(geteuid(), geteuid(), geteuid()); execlp("/bin/sh", "sh", "-i", NULL); }
 void print(unsigned char *buf, int len)
 {
         int i;
