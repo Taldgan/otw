@@ -110,7 +110,7 @@ by _IO_buf_base, writing (_IO_buf_end-_IO_buf_base) bytes.
 
 The value it writes... honestly I'm not sure where it gets it from. After I set the bytes properly in my test payloads,
 it ended up pulling from argv[1]'s first four bytes... so all that has to be set is _IO_buf_base, and _IO_buf_end (which should be _IO_buf_base+7...
-it'll write the begging of the format string before it writes the four bytes we want).
+it'll write the beginning of the format string before it writes the four bytes we want).
 
 So to create the exploit, we'll push multiple items onto the stack with argv[1], overriding the file pointer.
 
