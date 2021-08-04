@@ -19,9 +19,9 @@ def connect_to_level():
 def setup_payload(sh):
     shell = sh.run('/bin/bash')
     w = log.progress("Creating /tmp/tald2")
-    sh.set_working_directory(b'/tmp/tald2')
     shell.sendline("mkdir /tmp/tald2")
     shell.sendline("cd /tmp/tald2")
+    sh.set_working_directory(b'/tmp/tald2')
     w.success("Created")
     time.sleep(0.05)
     sh.upload_file("./m2wrapper.c")
