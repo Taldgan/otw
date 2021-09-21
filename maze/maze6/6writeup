@@ -221,10 +221,10 @@ I took those bytes into a wrapper function with a clean environment, and execute
 │#include <unistd.h>                                               │
 │                                                                  │
 │int main(void) {                                                  │
-│	char *environment[1] = {0};                                │
-│	char *payload = "..."; //same bytes as above               │
-│	char *argv[4] = {"/maze/maze6", "public", payload, 0};     │
-│	execve("/maze/maze6", argv, environment);                  │
+│	char *environment[1] = {0};                                    │
+│	char *payload = "..."; //same bytes as above                   │
+│	char *argv[4] = {"/maze/maze6", "public", payload, 0};         │
+│	execve("/maze/maze6", argv, environment);                      │
 │}                                                                 │
 └──────────────────────────────────────────────────────────────────┘
 
