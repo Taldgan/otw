@@ -17,7 +17,7 @@ int brute();
  * Returns the successful attempt, or NULL if no attempt was successful.
  **/
 int brute(){
-  char attempt[6];
+  char attempt[pLen+2];
   int i, focus = pLen -1, alphLen = 62;
   char alphabet[63] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
   'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -29,21 +29,22 @@ int brute(){
   for(i = 0; i < pLen; i++){
     attempt[i] = 'a';
   }
-  attempt[pLen] = '\0';
-  printf("attempt: %s\n", attempt);
+  attempt[pLen] = '\n';
+  attempt[pLen+1] = '\0';
 
   while(!makeAttempt(attempt)){
-    usleep(500);
+    //system("clear");
+    //usleep(500000);
+    printf("Attempt: %s", attempt);
     if(attempt[focus] == alphabet[alphLen-1]){
-      //system("clear");
-      printf("Attempt: %s", attempt);
       attempt[focus] = alphabet[0];
       focus--;
       continue;
     }
+    //incorrect line, skipping indexes...
     char* findChar = strchr(alphabet, attempt[focus]);
-    int attemptIndex = (int)(findChar-attempt)+1;
-    attempt[focus] = alphabet[attemptIndex];
+    int attemptIndex = (int)(findChar-alphabet);
+    attempt[focus] = alphabet[attemptIndex+1];
     if(focus < pLen-1){
       focus++;
     }
@@ -82,8 +83,8 @@ int makeAttempt(char *attempt){
   char *childOut = buf+15;
   read(pipefd[0], buf, sizeof(buf));
   close(pipefd[0]);
-  printf("Last letter: %c\n", buf[10]);
-  printf("Child output: %s\n", childOut);
+  //printf("Last letter: %c\n", buf[10]);
+  //printf("Child output: %s", childOut);
   int x;
   //Check for incorrect pass in output
   if((x = strncmp("Incorrect password\n", childOut, 19)) == 0)
@@ -93,6 +94,6 @@ int makeAttempt(char *attempt){
 }
 
 int main(void) {
-  makeAttempt("aaaaa");
+  brute();
   return 0;
 }
