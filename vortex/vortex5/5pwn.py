@@ -41,42 +41,48 @@ def execute_payload(sh):
 def brute(binary, pass_len):
     alphabet = list(string.ascii_lowercase + string.ascii_uppercase + string.digits)
     alph_len = 62
-    attempt = []
-    for i in range(0, pass_len):
-        attempt.append(alphabet[0])
+    attempt = ['a', 'j', 'A', 'e', 'Q']
+    #for i in range(0, pass_len):
+        #attempt.append(alphabet[0])
 
     response = make_attempt(binary, attempt)
     w = log.progress("Attempt")
 
     focus = pass_len-1
+    start = time.time()
     while 'Incorrect' in response:
-        time.sleep(0.005)
+        response = make_attempt(binary, attempt)
+        if 'right password' in response:
+            break
         if attempt[focus] == alphabet[alph_len-1]:
-            log_attempt(attempt, w)
+            log_attempt(attempt, w, start)
             attempt[focus] = alphabet[0]
             focus -= 1
             continue
-        print('focus: ' + str(focus))
-        print(attempt)
         attempt[focus] = alphabet[alphabet.index(attempt[focus])+1]
         if focus < pass_len-1:
             focus += 1
-        log_attempt(attempt, w)
+        log_attempt(attempt, w, start)
+    return attempt
 
-def log_attempt(attempt, w):
+def log_attempt(attempt, w, start):
     context.log_level = 'info'
-    w.status(str(attempt) + " \nIncorrect")
+    w.status(str(attempt) + " Incorrect\nTime Elapsed: " + str(int(time.time()-start)))
     context.log_level = 'error'
 
 def make_attempt(binary, attempt_list):
     attempt = ''
     attempt.join(attempt_list)
-    time.sleep(0.1)
+    #time.sleep(0.01)
     p = binary.process(["./vortex5"], stdin=PTY)
     p.sendline(attempt.encode('utf-8'))
-    p.recvline()
-    p.recvline()
-    return p.recvline().decode('utf-8')
+    p.recvline(timeout=1)
+    if p.recvline(timeout=1) == b'':
+        response = 'Incorrect'
+    else:
+        response = p.recvline(timeout=1).decode('utf-8')
+    p.close()
+    return response
 
 def local_payload():
     binary=ELF("vortex5")
