@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -8,13 +9,16 @@
 const unsigned short pLen = 5;
 char *binPath = {"./vortex5alt"};
 
+int makeAttempt(char *attempt);
+int brute();
+
 /** Function to initialize and adjust attempt string, then make that password attempt
  * to vortex5.
  * Returns the successful attempt, or NULL if no attempt was successful.
  **/
 int brute(){
   char attempt[6];
-  int i;
+  int i, focus = pLen -1, alphLen = 62;
   char alphabet[63] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
   'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
@@ -26,12 +30,31 @@ int brute(){
     attempt[i] = 'a';
   }
   attempt[pLen] = '\0';
+  printf("attempt: %s\n", attempt);
 
+  while(!makeAttempt(attempt)){
+    usleep(500);
+    if(attempt[focus] == alphabet[alphLen-1]){
+      //system("clear");
+      printf("Attempt: %s", attempt);
+      attempt[focus] = alphabet[0];
+      focus--;
+      continue;
+    }
+    char* findChar = strchr(alphabet, attempt[focus]);
+    int attemptIndex = (int)(findChar-attempt)+1;
+    attempt[focus] = alphabet[attemptIndex];
+    if(focus < pLen-1){
+      focus++;
+    }
+  }
+  printf("Successful attempt: %s", attempt);
   return 1;
 }
 
-/** Pass an attempt onto vortex5 binary and log the output
- **/
+/** Pass an attempt onto vortex5 binary and return true if password attempt was
+    successful
+**/
 int makeAttempt(char *attempt){
   int pipefd[2];
 
@@ -52,7 +75,6 @@ int makeAttempt(char *attempt){
     //child to get exit code of vortex5
     execv(binPath, args);
   }
-  printf("Attempt: %s", attempt);
   write(pipefd[1], attempt, 5);
   close(pipefd[1]);
   wait(0);
@@ -71,14 +93,6 @@ int makeAttempt(char *attempt){
 }
 
 int main(void) {
-  //char password[pLen+1];
-  //if((password = brute()) == NULL){
-  //printf("No password found");
-  //return 1;
-  //}
-  //printf("Password found: %s", brute());
-  //if(makeAttempt("abcde\n")){
-    //printf("pass found!\n");
-  //}
+  makeAttempt("aaaaa");
   return 0;
 }

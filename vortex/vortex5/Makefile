@@ -14,4 +14,4 @@ vortex5alt.o: vortex5alt.c
 clean:
 	rm -rf *.o 2>/dev/null
 	rm -f 5pwn 2>/dev/null
-	rm -f testfile
+	rm -f vortex5alt 2>/dev/null
