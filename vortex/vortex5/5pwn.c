@@ -17,7 +17,7 @@ int brute();
  * Returns the successful attempt, or NULL if no attempt was successful.
  **/
 int brute(){
-  //char attempt[pLen+2];
+  char attempt[pLen+2];
   int i, focus = pLen -1, alphLen = 62;
   char alphabet[63] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
   'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -26,12 +26,11 @@ int brute(){
   '4', '5', '6', '7', '8', '9', '\0'};
 
   //Initialize attempt char array
-  //for(i = 0; i < pLen; i++){
-    //attempt[i] = 'a';
-  //}
-  //attempt[pLen] = '\n';
-  //attempt[pLen+1] = '\0';
-  char attempt[7] = {'a', 'o', 'Q', '8', 'Q', '\n', '\0'};
+  for(i = 0; i < pLen; i++){
+    attempt[i] = 'a';
+  }
+  attempt[pLen] = '\n';
+  attempt[pLen+1] = '\0';
 
   while(!makeAttempt(attempt)){
     //system("clear");
@@ -42,7 +41,6 @@ int brute(){
       focus--;
       continue;
     }
-    //incorrect line, skipping indexes...
     char* findChar = strchr(alphabet, attempt[focus]);
     int attemptIndex = (int)(findChar-alphabet);
     attempt[focus] = alphabet[attemptIndex+1];
@@ -77,14 +75,13 @@ int makeAttempt(char *attempt){
     //child to get exit code of vortex5
     execv(binPath, args);
   }
-  write(pipefd[1], attempt, 5);
+  write(pipefd[1], attempt, 6);
   close(pipefd[1]);
   wait(0);
   char buf[200];
   char *childOut = buf+15;
   read(pipefd[0], buf, sizeof(buf));
   close(pipefd[0]);
-  //printf("Last letter: %c\n", buf[10]);
   printf("Child output: %.19s\n", childOut);
   int x;
   if((x = strncmp("You got the right p", childOut, 19)) == 0)

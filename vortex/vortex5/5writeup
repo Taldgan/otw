@@ -1,0 +1,22 @@
+Basic level.
+
+Running vortex5 prompts for a password - if you input the right one, it grants a shell.
+If not, it outputs 'Incorrect password'.
+
+The way it works it uses getpass() to obtain user input, then it performs an MD5 hash on
+the user input password. If the hash matches the precomputed hash in the C file, you're netted
+a privileged shell.
+
+For this level, we're told the password is 5 characters (a-zA-Z0-9).
+
+Like a moron, I chose to take a vastly more complicated route than necessary to solve this level.
+
+Using inter-process communication with forking, pipes, and dup2 I wrote a C program
+that bruteforces the password.
+
+Really, the easier solution is to google or use a pre-established hash cracker tool and/or
+website.
+
+Either way, cracking the hash will give you the password, or you can brute-force it.
+
+Then you get your shell and can cat out the password for vortex 6.
