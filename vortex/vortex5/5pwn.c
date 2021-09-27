@@ -17,7 +17,7 @@ int brute();
  * Returns the successful attempt, or NULL if no attempt was successful.
  **/
 int brute(){
-  char attempt[pLen+2];
+  //char attempt[pLen+2];
   int i, focus = pLen -1, alphLen = 62;
   char alphabet[63] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
   'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -26,15 +26,16 @@ int brute(){
   '4', '5', '6', '7', '8', '9', '\0'};
 
   //Initialize attempt char array
-  for(i = 0; i < pLen; i++){
-    attempt[i] = 'a';
-  }
-  attempt[pLen] = '\n';
-  attempt[pLen+1] = '\0';
+  //for(i = 0; i < pLen; i++){
+    //attempt[i] = 'a';
+  //}
+  //attempt[pLen] = '\n';
+  //attempt[pLen+1] = '\0';
+  char attempt[7] = {'a', 'o', 'Q', '8', 'Q', '\n', '\0'};
 
   while(!makeAttempt(attempt)){
     //system("clear");
-    //usleep(500000);
+    usleep(50);
     printf("Attempt: %s", attempt);
     if(attempt[focus] == alphabet[alphLen-1]){
       attempt[focus] = alphabet[0];
@@ -84,13 +85,12 @@ int makeAttempt(char *attempt){
   read(pipefd[0], buf, sizeof(buf));
   close(pipefd[0]);
   //printf("Last letter: %c\n", buf[10]);
-  //printf("Child output: %s", childOut);
+  printf("Child output: %.19s\n", childOut);
   int x;
-  //Check for incorrect pass in output
-  if((x = strncmp("Incorrect password\n", childOut, 19)) == 0)
-    return 0;
-  //If not, password found
-  return 1;
+  if((x = strncmp("You got the right p", childOut, 19)) == 0)
+    return 1;
+
+  return 0;
 }
 
 int main(void) {
