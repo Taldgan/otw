@@ -20,3 +20,5 @@ website.
 Either way, cracking the hash will give you the password, or you can brute-force it.
 
 Then you get your shell and can cat out the password for vortex 6.
+
+rlTf6
