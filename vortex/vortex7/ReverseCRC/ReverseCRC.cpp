@@ -54,7 +54,7 @@ int main(void)
 {
 	//My tests
 	//testOneAscii(0xd070355e, 0xe1ca95ee);
-	testOneAscii(0x875facd2, 0x5008344d);
+	testOneAscii(0x5b276bef, 0x5008344d);
 
     return 0;
 }
