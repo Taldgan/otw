@@ -38,7 +38,7 @@ def local_payload():
     p = binary.process()
     b = log.progress("Sending backslashes")
     send_backslashes(p, b)
-    p.interactive() 
+    #p.interactive() 
 
 if len(sys.argv) == 2 and sys.argv[1] == "local":
     local_payload()
