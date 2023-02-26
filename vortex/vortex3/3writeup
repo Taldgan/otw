@@ -1,3 +1,5 @@
+* Note - address of PLT loc was moved in update, have to change 0x08048312 to 0x8049062 in wrapper
+* Also had to update shellcode to make a syscall with setreuid(5004, 5004)
 General idea for this level is that you can overwrite a double pointer, which is then dereferenced twice. It writes
 the address of buf (argv[1], essentially) to the double dereferenced location.
 
@@ -52,10 +54,10 @@ The double pointer makes this a little tricky... normally we'd want to overwrite
 however we can't just provide that as lpp directly, since it'll try to dereference twice.
 
 That means we need to find that address in the binary.
-Fortunatley for us, its loaded in directly in the binary as an instruction (in order to access the got) AND
+Fortunately for us, its loaded in directly in the binary as an instruction (in order to access the got) AND
 the address for that instruction is in the range checked by the if statement (0x0804....).
 
-That just means we provide this ┐ instructions address to overwrite lpp (plus an offset to get the address specifically) and we can make exit point to buf!
+That just means we provide this ┐ instruction's address to overwrite lpp (plus an offset to get the address specifically) and we can make exit point to buf!
                                 │
  ┌ 6: sym.imp.exit ();          v
  └      ╎╎   0x08048310      ff2534970408   jmp dword [reloc.exit]      ; 0x8049734

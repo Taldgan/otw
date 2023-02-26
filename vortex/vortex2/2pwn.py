@@ -8,7 +8,7 @@ import sys
 level = 2
 USER = 'vortex2'
 HOST = 'vortex.labs.overthewire.org'
-PASS = '23anbT\\rE'
+PASS = 'kPNds22Ru'
 PORT = 2228
 
 

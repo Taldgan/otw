@@ -7,7 +7,7 @@ import time
 level = 3
 USER = 'vortex%s' % level
 HOST = 'vortex.labs.overthewire.org'
-PASS = '64ncXTvx#'
+PASS = 'g3crKgtu7'
 PORT = 2228
 
 def connect_to_level():
