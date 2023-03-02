@@ -17,7 +17,7 @@ import string
 level = 5
 USER = 'vortex%s' % level
 HOST = 'vortex.labs.overthewire.org'
-PASS = ':4VtbC4lr'
+PASS = 'Aap2dupto'
 PORT = 2228
 
 context.log_level = 'error'
@@ -30,7 +30,7 @@ def execute_payload(sh):
     time.sleep(0.05)
     w = log.progress("Executing vortex5")
     shell = sh.run('/vortex/vortex5')
-    passw = b'abcde'
+    passw = b'rlTf6'
     shell.sendline(passw)
     w.success("Complete")
     log.success("vortex6 shell established")
@@ -41,7 +41,7 @@ def execute_payload(sh):
 def brute(binary, pass_len):
     alphabet = list(string.ascii_lowercase + string.ascii_uppercase + string.digits)
     alph_len = 62
-    attempt = ['a', 'j', 'A', 'e', 'Q']
+    attempt = ['r', 'l', 'T', 'a', 'a']
     #for i in range(0, pass_len):
         #attempt.append(alphabet[0])
 
@@ -72,7 +72,7 @@ def log_attempt(attempt, w, start):
 
 def make_attempt(binary, attempt_list):
     attempt = ''
-    attempt.join(attempt_list)
+    attempt = attempt.join(attempt_list)
     #time.sleep(0.01)
     p = binary.process(["./vortex5"], stdin=PTY)
     p.sendline(attempt.encode('utf-8'))
@@ -81,13 +81,15 @@ def make_attempt(binary, attempt_list):
         response = 'Incorrect'
     else:
         response = p.recvline(timeout=1).decode('utf-8')
+    #print(response)
     p.close()
     return response
 
 def local_payload():
     binary=ELF("vortex5")
     w = log.progress("Executing vortex 5")
-    print(brute(binary, 5))
+    passw = ''
+    print('Password is: '+ passw.join(brute(binary, 5)))
 
 
 if len(sys.argv) == 2 and sys.argv[1] == "local":
