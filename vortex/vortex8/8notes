@@ -1,0 +1,10 @@
+main:
+- spawn 'safecode' thread
+- set guid & uid to real uid/gid using SYSCALLS
+- make call to 'unsafecode' (strcpy buf overflow)
+
+- Since the syscall setresid & setresgid are used instead of the libc functions, only the main thread is impacted
+- Safecode thread is a while loop that does printf("%d", 0)->fflush(stdout),sleep(1)
+- From unsafecode we should somehow be able to impact & exploit privileged/elevated 'safecode' thread to spawn a shell
+- Overwrite format string? GOT entry? idk
+
