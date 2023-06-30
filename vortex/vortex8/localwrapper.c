@@ -7,9 +7,6 @@
 //xor eax, eax          # wipe eax
 //nop
 //jmp -1                # jmp back for infinite loop \xeb\xfd
-//mov al, 0xa2         # nanosleep syscall
-//mov ebx, 0x8049050    # point to '%d' printf buf for an arbitrary sleep
-//xor ecx, ecx          # wipe ecx
 //syscall
 //''')
 
