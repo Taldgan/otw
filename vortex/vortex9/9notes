@@ -1,0 +1,12 @@
+Weird one - not sure what it's purpose is?
+
+I couldn't find a vortex9 in the normal location (/vortex)
+so I searched the server for a vortex9 file
+
+find / -type f -iname 'vortex9' 2>/dev/null
+
+This outputted 2 paths - the password file (/etc/vortex_pass/vortex9),
+but also a vortex9 file in /var/spool/mail/vortex9.
+
+file /var/spool/mail/vortex9 revealed it to be ascii,
+and catting it revealed the password for vortex10... huh.
