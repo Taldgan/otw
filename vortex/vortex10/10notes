@@ -1,57 +1,110 @@
-int main(int argc,char **argv)
-{
-  clock_t clockVal;
-  time_t time_now;
-  int rand_int;
-  __uid_t __suid;
-  __uid_t __euid;
-  __uid_t __ruid;
-  int in_GS_OFFSET;
-  uint user_input;
-  int i;
-  int calculated_seed_add_val;
-  uint seed;
-  tms tms_buf;
-  int rand_values [20];
-  int stack_cookie;
+
+A little bit different than the other levels - this one is less binary
+exploitation and more reversing/cracking.
+
+
+┌────────────────────────── vortex10 (main) ─────────────────────────┐
+  int main(int argc,char **argv)
+  {
+    clock_t clockVal;
+    time_t time_now;
+    int rand_int;
+    __uid_t __suid;
+    __uid_t __euid;
+    __uid_t __ruid;
+    int in_GS_OFFSET;
+    uint user_input;
+    int i;
+    int calculated_seed_add_val;
+    uint seed;
+    tms tms_buf;
+    int rand_values [20];
+    int stack_cookie;
+    
+    // Stack cookies!
+    stack_cookie = *(int *)(in_GS_OFFSET + 0x14);
+
+    //Calculate seed value based off 'times', 'clock', and 'time' outputs + some math.
+    clockVal = times(&tms_buf);
+    calculated_seed_add_val =
+           clockVal + tms_buf.tms_cstime + tms_buf.tms_utime + tms_buf.tms_stime + tms_buf.tms_cutime;
+    clockVal = clock();
+    calculated_seed_add_val = calculated_seed_add_val + clockVal;
+    time_now = time((time_t *)0x0);
+    calculated_seed_add_val = 0x80 - (calculated_seed_add_val + time_now) % 0x100;
+    time_now = time((time_t *)0x0);
+    seed = time_now + calculated_seed_add_val;
+    srand(seed);
+    setvbuf(stdout,(char *)0x0,2,0);
+
+    //Generate calculated number of random values
+    for (i = 0; i < calculated_seed_add_val; i = i + 1) {
+       rand();
+    }
+    putchar(L'[');
+
+    //Generate 20 more, and output those last 20
+    for (i = 0; i < 0x14; i = i + 1) {
+       rand_int = rand();
+       rand_values[i] = rand_int;
+       printf(" %08x,",rand_values[i]);
+    }
+    puts("]");
+    alarm(30);
+    read(0,&user_input,4);
+    if (seed == user_input) {
+       __suid = geteuid();
+       __euid = geteuid();
+       __ruid = geteuid();
+       setresuid(__ruid,__euid,__suid);
+       execlp("/bin/sh","sh",&DAT_0804a011,0);
+    }
+    else {
+       puts("Nope, try again");
+    }
+    if (stack_cookie != *(int *)(in_GS_OFFSET + 0x14)) {
+                           /* WARNING: Subroutine does not return */
+       __stack_chk_fail();
+    }
+    return 0;
+  }
+└────────────────────────────────────────────────────────────────────┘
+
+
+The level generates a seed for srand by making some calls to various
+'time' functions, and then does a little bit of math.
+
+It then calls 'rand' a number of times based off of the 'calculated_seed_add_val' variable,
+then calls rand 20 times more - storing & printing the last 20 values.
+
+If you can input the seed used, it gives you an elevated shell!
+
+To beat this level, I wrote a c program that executes vortex10, parse
+the outputted random values, then crack & write the seed back.
+
+It is far from perfect - although I ripped the logic for the seed
+generation from the reversed binary, I didn't account for iterating over
+the 'calculated_seed_add_val' value, so it can only identify the seed
+when the calculated_seed_add_val matches on a run between vortex10 and the solver.
+
+I decided to just pair the solver with a bash script that executes the solver 
+until the 'Found seed match' output is hit - then it stops!
+
+
+┌───────────────────────────────────────── run.sh ───────────────────────────────────────────┐
+  #!/bin/bash
+  while true
+  do
   
-  stack_cookie = *(int *)(in_GS_OFFSET + 0x14);
-  clockVal = times(&tms_buf);
-  calculated_seed_add_val =
-         clockVal + tms_buf.tms_cstime + tms_buf.tms_utime + tms_buf.tms_stime + tms_buf.tms_cutime;
-  clockVal = clock();
-  calculated_seed_add_val = calculated_seed_add_val + clockVal;
-  time_now = time((time_t *)0x0);
-  calculated_seed_add_val = 0x80 - (calculated_seed_add_val + time_now) % 0x100;
-  time_now = time((time_t *)0x0);
-  seed = time_now + calculated_seed_add_val;
-  srand(seed);
-  setvbuf(stdout,(char *)0x0,2,0);
-  for (i = 0; i < calculated_seed_add_val; i = i + 1) {
-     rand();
-  }
-  putchar(L'[');
-  for (i = 0; i < 0x14; i = i + 1) {
-     rand_int = rand();
-     rand_values[i] = rand_int;
-     printf(" %08x,",rand_values[i]);
-  }
-  puts("]");
-  alarm(30);
-  read(0,&user_input,4);
-  if (seed == user_input) {
-     __suid = geteuid();
-     __euid = geteuid();
-     __ruid = geteuid();
-     setresuid(__ruid,__euid,__suid);
-     execlp("/bin/sh","sh",&DAT_0804a011,0);
-  }
-  else {
-     puts("Nope, try again");
-  }
-  if (stack_cookie != *(int *)(in_GS_OFFSET + 0x14)) {
-                         /* WARNING: Subroutine does not return */
-     __stack_chk_fail();
-  }
-  return 0;
-}
+          if /tmp/tald10/solver /vortex/vortex10 | grep -B 15 -A 30 'Found seed match'; then
+                  break
+          fi
+  done
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+
+I also had trouble figuring out a way to get my input to the shell
+because of the way I constructed the pipes between the programs -
+so I just write 'cat /etc/vortex_pass/vortex11\n' to the shell
+and read the final output if there is a match!
+
+This level definitely served as a good refresher on dup2/fork/exec & pipes!

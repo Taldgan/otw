@@ -20,10 +20,10 @@ int main(int argc,char **argv)
   struct tms tms_buf;
   int rand_values [20];
   int stack_cookie;
-  
+
   clockVal = times(&tms_buf);
   calculated_seed_add_val =
-         clockVal + tms_buf.tms_cstime + tms_buf.tms_utime + tms_buf.tms_stime + tms_buf.tms_cutime;
+    clockVal + tms_buf.tms_cstime + tms_buf.tms_utime + tms_buf.tms_stime + tms_buf.tms_cutime;
   clockVal = clock();
   calculated_seed_add_val = calculated_seed_add_val + clockVal;
   time_now = time((time_t *)0x0);
@@ -31,27 +31,30 @@ int main(int argc,char **argv)
   time_now = time((time_t *)0x0);
   seed = time_now + calculated_seed_add_val;
   srand(seed);
+  fprintf(stderr, "VORTEX SEED: %08x\n", seed);
+  fprintf(stderr, "calculated_seed_add_val: %08x\n", calculated_seed_add_val);
   setvbuf(stdout,(char *)0x0,2,0);
   for (i = 0; i < calculated_seed_add_val; i = i + 1) {
-     rand();
+    rand();
   }
   putchar(L'[');
   for (i = 0; i < 0x14; i = i + 1) {
-     rand_int = rand();
-     rand_values[i] = rand_int;
-     printf(" %08x,",rand_values[i]);
+    rand_int = rand();
+    rand_values[i] = rand_int;
+    printf(" %08x,",rand_values[i]);
   }
   puts("]");
   alarm(30);
   read(0,&user_input,4);
   if (seed == user_input) {
-     __suid = geteuid();
-     __euid = geteuid();
-     __ruid = geteuid();
-     execlp("/bin/sh","sh",NULL,0);
+    __suid = geteuid();
+    __euid = geteuid();
+    __ruid = geteuid();
+    execlp("/bin/sh","sh",NULL,0);
   }
   else {
-     puts("Nope, try again");
+    printf("VORT10 USER INPUT READ: %08x\n\n", user_input);
+    puts("Nope, try again");
   }
   return 0;
 }
