@@ -1,13 +1,8 @@
-Before starting, the reader needs to know the following details about phk malloc
-on Intel i86 (more detail is provided in appendix B):
+Finally! A heap exploit level.
 
-  * tiny chunks are 16 (0x10) and 32 (0x20) bytes chunks
-  * medium-sized chunks range from 64 (0x40) to 2048 (0x1000/2) bytes, inclusive
-  * a memory page is 4096 (0x1000) bytes long
-  * pginfo structures range between 20 and 32 bytes (remember the bits field has
-    a variable width), and are stored in 32 bytes chunks, except for 16 bytes
-    chunks pages, whose pginfos are 48 bytes long
-  * pgfree structures are 20 bytes long
+The idea of this level is to overwrite a 'pginfo' struct,
+causing the returned value of the final 'malloc' to point to a location
+we wantj
 
 ┌───────────────────────── vortex11 (main) ──────────────────────────┐
    #include <stdio.h>
@@ -23,14 +18,63 @@ on Intel i86 (more detail is provided in appendix B):
            {
                    exit(0);
            }
+           //Allocate 'large' chunk page (with 2 chunks, each 2048 bytes)
            p = (char *) malloc(0x800);
+           //Allocate 'tiny' chunk page, which will contain a 
+           //new pginfo struct
            q = (char *) malloc(0x10);
+           //Allocate the 2nd chunk in the 'large' page
            r = (char *) malloc(0x800);
+           //Overflow the 2nd large chunk by 8 bytes, allowing
+           //us to set the page/shift/bits field of the struct
            strcpy(r , argv[1]);
+           //We now control the following tiny chunk allocation,
+           //allowing us to write to an arbitrary memory location 
            s = (char *) malloc(0x10);
            strncpy(s , argv[2], 0xf);
            exit(0);
    }
 └────────────────────────────────────────────────────────────────────┘
 
+ Diagram of the heap during the exploit:
+
+┌─ Page 1 (large page) ─┐
+│                       │
+│  p (large chunk 1)    │
+│     0x800             │ ─> Allocated first (new page) ┐
+│                       │                               │
+│ ───────────────────── │                               │
+│                       │                               │
+│  r (large chunk 2)    │<┐ Third allocation            │
+│     0x800             │ │ Now writing to 'r'          │
+│                       │ │ allows for overwriting      │
+└┐                     ┌┘ │ of the PGINFO struct        │
+ │ ─ Page 2 (tny pg) ─ │  │                             │
+┌┘                     └┐ │ The next 'tiny' heap alloc  │
+│  ┌  PGINFO STRUCT  ┐  │ │ is now at a controllable    │
+│  │  PGINFO STRUCT  │  │ │ location                    │
+│  └  PGINFO STRUCT  ┘  │ │                             │
+│ ───────────────────── │ │                             │
+│ │q│  │  │  │  │  │  │ │ <─── Allocated 2nd (q) ───────┘ 
+│ 0x10 ──────────────── │      Since tiny size chunks, this page will contain
+│   │  │  │  │  │  │  │ │      a pginfo struct placed immediately after the
+│ ───────────────────── │      'large' chunks
+│   │  │  │  │  │  │  │ │
+└───────────────────────┘
+
+
+    struct pginfo       *next;  /* next on the free list */
+    void                *page;  /* Pointer to the page */
+    u_short             size;   /* size of this page's chunks */
+    u_short             shift;  /* How far to shift for this size chunks */
+    u_short             free;   /* How many free chunks */
+    u_short             total;  /* How many chunk */
+    u_int               bits[1]; /* Which chunks are free */
+
+At the time of the last malloc, there are '2' occupied chunks.
+By overwritting the 'page' value of the pginfo struct with the address
+of exit@got.plt-64, the next address returned by malloc will be the address of exit.
+
+strncpy will then copy in the value contained at argv[2], replacing exit!
+By pointing that to shellcode, you land a shell!
 
