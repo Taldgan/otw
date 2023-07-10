@@ -1,0 +1,54 @@
+Almost identical to vortex 8 except the stack is NX!
+
+Need a ropgadget to overwrite fflush or printf GOT entry
+
+Bases/Addresses:
+  0xf7c00000 - libc base
+  0x804c014  - fflush@got.plt
+  0x804a008  - "%d" @rodata
+  0xf7c6fb60 - fgets addr
+Important offsets: 
+  0x47cb0 - offset to system
+  0x001b90f5 - /bin/sh\x00 string
+  0x00119f50 - mprotect offset
+
+ROP Chain:
+- Some kind of pop/pop/write/ret gadget to construct a fake 
+  stack in the GOT where I'll write the rop chain to call system?
+- Pop fflush@got.plt addr into reg
+- Pop ROP chain start into 
+
+Gadgets (libc):
+
+ Arbitrary write
+   vortex libc:
+ - 0x00125873: pop edx; pop ecx; pop eax; ret; 
+ - 0x0004a7b6: mov dword ptr [edx], ecx; ret; 
+ - 0x000218c7: jmp eax;
+
+   my libc:
+ - 0x12b3e3: pop edx; pop ecx; pop eax; ret; 
+ - 0x3a7c6: mov dword ptr [edx], ecx; ret; 
+ - 0x3d43cd: jmp eax;
+
+
+
+
+ - 0x0011d581         b803000000  mov eax, 3
+   0x0011d586                 5b  pop ebx
+   0x0011d587                 5e  pop esi
+   0x0011d588                 5f  pop edi
+   0x0011d589                 c3  ret
+
+ - 0x00193f56: mov eax, 0xc; pop edi; ret; 
+ - 0x0002c51e: xchg eax, esi; ret; 
+ - 0x000613b5: push esi; ret; 
+ - 0x0008192d: push edx; push ecx; push esi; call eax; 
+
+ Idea now - ROP to call mprotect on RODATA section to make it writable.
+ Replace '%d' string in rodata with /bin/sh, and printf@got.plt with system
+ bada bing bada boom.
+
+ mov eax, 3; pop ebx; pop esi; ret
+
+ Maybe make call to fgets to populate stack with my own values instead??
