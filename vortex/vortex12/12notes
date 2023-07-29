@@ -161,3 +161,16 @@ SYSSCALL
 0xf7d1f78e <mprotect+30>:    cmp    eax,0xfffff001
 0xf7d1f793 <mprotect+35>:    jae    0xf7c1f890
 0xf7d1f799 <mprotect+41>:    ret
+
+
+# SWAP EBX + EAX
+0xf7d99404: xchg eax, ebx; add al, 0x83; ret; 
+
+# SYSCALL
+0x3c7570
+
+# AND EAX, 0x7F (set eax for syscall)
+0xf7c2ee58: and eax, 0x7f; ret; 
+
+# POP EAX
+0xf7d2b3e5: pop eax; ret; 
