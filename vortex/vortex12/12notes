@@ -174,3 +174,11 @@ SYSSCALL
 
 # POP EAX
 0xf7d2b3e5: pop eax; ret; 
+
+
+
+# FOR SERVER (WRITE GADGET)
+mov dword ptr [edx], eax; ret; 
+
+mov dword ptr [edx], ecx; ret; 
+0x0004a7b6
