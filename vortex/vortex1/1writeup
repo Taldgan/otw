@@ -1,4 +1,6 @@
 Not a crazy difficult level, but a bit weird at first...
+```c
+
                                                                            vortex1.c
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │  #include <stdlib.h>                                                                                                                                             │
@@ -34,6 +36,8 @@ Not a crazy difficult level, but a bit weird at first...
 │          printf("All done\n");                                                                                                                                   │
 │  }                                                                                                                                                               │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 
 The binary for this level essentially reads in characters until the program is closed/reaches EOF.
 The goal is to get the defined 'e()' function to be called - which grants us a shell if an if statement inside is successful.
