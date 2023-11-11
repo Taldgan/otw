@@ -63,3 +63,12 @@ Now, we need a rop chain to overwrite the GOT entry for printf.
 ## Solution details
 
 To start - we've got to 
+
+
+
+## Gadgets List
+### To get '7' set for mprotect:
+ - 0xfffffff8
+ - pop ecx; ret
+ - 0x00109314: xor ecx, 0xffffffff; ret;
+
